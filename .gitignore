@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build
+dist/
+out/
+release/
+*.local
+
+# Env / secrets
+.env
+.env.*
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+docs/lab-notes/**
+!docs/lab-notes/README.md
+
+# User data / dumps
+*.bin
+!firmware/**/*.bin
+userData/
+*.nsrec.json
+.ns2-studio/
+
+# Native build
+build/
+*.node
+
+# Test / coverage
+coverage/
