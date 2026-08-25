@@ -2,7 +2,7 @@
 
 | 字段 | 值 |
 |------|-----|
-| **Status** | `ready` |
+| **Status** | `done` |
 | **Priority** | P0 |
 | **Depends on** | 无（可与 S0 并行） |
 | **Blocks** | S2, S4 |
@@ -25,41 +25,41 @@
 
 ### 3.1 Monorepo 最小根（若尚不存在）
 
-- [ ] `package.json` + `pnpm-workspace.yaml` + `tsconfig.base.json` + `.gitignore`
-- [ ] 根脚本：`pnpm -r test`, `pnpm -r build`
+- [x] `package.json` + `pnpm-workspace.yaml` + `tsconfig.base.json` + `.gitignore`
+- [x] 根脚本：`pnpm -r test`, `pnpm -r build`
 
 ### 3.2 `@ns2-studio/pad-types`
 
-- [ ] `SwitchButton` 枚举/常量（位值与文档一致）
-- [ ] `SwitchHat` 常量
-- [ ] `PadReport`, `TimedPadReport`, `NEUTRAL_REPORT`
-- [ ] 工具：`isNeutral`, `clampStick`, `mergeButtons`
-- [ ] 导出清晰的 `src/index.ts`
+- [x] `SwitchButton` 枚举/常量（位值与文档一致）
+- [x] `SwitchHat` 常量
+- [x] `PadReport`, `TimedPadReport`, `NEUTRAL_REPORT`
+- [x] 工具：`isNeutral`, `clampStick`, `mergeButtons`
+- [x] 导出清晰的 `src/index.ts`
 
 ### 3.3 `@ns2-studio/protocol`
 
-- [ ] `encodeReport(report: PadReport): Uint8Array`（7bit 打包）
-- [ ] `decodeReportPacket`（可选，便于调试；非必须完美）
-- [ ] `commands.hello()`, `commands.ready()`, `commands.changeAmiiboIndex(i)`
-- [ ] `commands.saveAmiiboHeader(offset, len, index)` 字节布局
-- [ ] `Reply` 常量
-- [ ] 依赖 `pad-types`，不依赖 electron/serialport
+- [x] `encodeReport(report: PadReport): Uint8Array`（7bit 打包）
+- [x] `decodeReportPacket`（可选，便于调试；非必须完美）
+- [x] `commands.hello()`, `commands.ready()`, `commands.changeAmiiboIndex(i)`
+- [x] `commands.saveAmiiboHeader(offset, len, index)` 字节布局
+- [x] `Reply` 常量
+- [x] 依赖 `pad-types`，不依赖 electron/serialport
 
 ### 3.4 测试（vitest）
 
-- [ ] 中立包 hex 快照
-- [ ] 仅 A、仅 B、A+B
-- [ ] HAT LEFT
-- [ ] 摇杆 LY=0 / LY=255 / LX=0
-- [ ] 打包最后一字节 bit7=1
-- [ ] 与文档伪代码边界一致（非 7 整除等）
+- [x] 中立包 hex 快照
+- [x] 仅 A、仅 B、A+B
+- [x] HAT LEFT
+- [x] 摇杆 LY=0 / LY=255 / LX=0
+- [x] 打包最后一字节 bit7=1
+- [x] 与文档伪代码边界一致（非 7 整除等）
 
 **对拍：** 若 S0 lab-note 有 C# hex，建成 `test/vectors.json`。
 
 ### 3.5 文档
 
-- [ ] 各 package 简短 README（安装与示例 5 行）
-- [ ] 若发现协议歧义，PR 式修改 `02-PROTOCOL.md`
+- [x] 各 package 简短 README（安装与示例 5 行）
+- [x] 若发现协议歧义，PR 式修改 `02-PROTOCOL.md`（未发现歧义）
 
 ## 4. 公共 API 冻结（S1 done 后）
 
@@ -102,4 +102,4 @@ export function buildSaveAmiiboMetaFrame(offset: number, len: number, index: num
 
 | 日期 | 笔记 |
 |------|------|
-| | |
+| 2026-08-22 | pad-types + protocol 实现完成。encodeReport 与 7 个固定向量（中立/A/A+B+L/HAT-LEFT/LY=0/LY=255/LX=0）精确对拍；另补 B、A+B 两个向量。vitest：pad-types 9 过，protocol 16 过；`pnpm -r build` 类型检查通过。根 pnpm-workspace.yaml 增加 `allowBuilds`（esbuild、@serialport/bindings-cpp，pnpm11 新键）。未修改 02-PROTOCOL.md（无歧义）。 |

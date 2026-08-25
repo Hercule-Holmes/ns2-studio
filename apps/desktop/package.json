@@ -1,0 +1,36 @@
+{
+  "name": "@ns2-studio/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NS2 Studio desktop app (electron-vite + Vue3 + TypeScript)",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit --composite false -p tsconfig.node.json && vue-tsc --noEmit --composite false -p tsconfig.web.json",
+    "test": "vitest run",
+    "dist": "electron-vite build && electron-builder --win",
+    "pack": "electron-builder --dir"
+  },
+  "dependencies": {
+    "@ns2-studio/pad-types": "workspace:*",
+    "@ns2-studio/protocol": "workspace:*",
+    "@ns2-studio/timeline-model": "workspace:*",
+    "node-hid": "^3.4.0",
+    "serialport": "^12.0.0",
+    "vue": "^3.5.41",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "electron": "^43.4.1",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "typescript": "~5.9.3",
+    "vite": "^7.3.6",
+    "vitest": "^3.2.7",
+    "vue-tsc": "^3.3.11"
+  }
+}

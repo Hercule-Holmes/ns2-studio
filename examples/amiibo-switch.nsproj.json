@@ -1,0 +1,24 @@
+{
+  "magic": "NSPROJ",
+  "version": 1,
+  "name": "Amiibo 切换示例",
+  "durationMs": 6000,
+  "gridMs": 10,
+  "tracks": [
+    {
+      "id": "track_buttons",
+      "type": "buttons",
+      "clips": [
+        { "id": "c1", "key": "A", "startMs": 1000, "endMs": 1080 }
+      ]
+    },
+    {
+      "id": "track_amiibo",
+      "type": "amiibo",
+      "clips": [
+        { "id": "c4", "startMs": 2000, "endMs": 2001, "slot": 1 },
+        { "id": "c5", "startMs": 4000, "endMs": 4001, "slot": 3 }
+      ]
+    }
+  ]
+}

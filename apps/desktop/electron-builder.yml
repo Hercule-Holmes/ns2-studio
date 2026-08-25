@@ -1,0 +1,41 @@
+# S11 packaging config (electron-builder).
+# Target: Windows portable self-extracting exe (no installer needed).
+#
+# Native modules (serialport / node-hid) ship N-API prebuilds under their
+# package dirs. They are listed in `dependencies`, so electron-builder packs
+# them; `asarUnpack` keeps the `.node` binaries (and their `prebuilds/`) on
+# disk next to app.asar so Node's native loader can dlopen them from the
+# packaged app (node cannot load .node from inside an asar archive).
+
+appId: com.ns2studio.desktop
+productName: NS2 Studio
+copyright: Copyright © 2026 NS2 Studio contributors
+
+directories:
+  output: release
+  buildResources: resources
+
+# electron-vite emits the runnable app under out/ (main/preload/renderer).
+files:
+  - out/**/*
+
+asar: true
+asarUnpack:
+  - "**/*.node"
+  - "node_modules/node-hid/**"
+  - "node_modules/@serialport/**"
+
+# serialport@12 / node-hid@3 use N-API prebuilds: no C++ rebuild required.
+npmRebuild: false
+
+win:
+  target:
+    - target: portable
+      arch:
+        - x64
+  # Icon assets are not committed yet (no artwork available). electron-builder
+  # falls back to the default Electron icon; set `icon` to a 256x256 .ico once
+  # artwork exists (see resources/README.md).
+
+portable:
+  artifactName: NS2Studio-${version}-portable.${ext}

@@ -20,6 +20,35 @@ PC 端 Electron 应用：经 ESP32-S3 控制 Nintendo Switch 2，支持虚拟手
 
 1. **S0** 硬件冒烟 — `docs/sessions/S0-hardware-smoke.md`
 2. **S1** 协议包 — `docs/sessions/S1-protocol-package.md`（可与 S0 并行）
+3. **S2** Electron 壳 + 设备连接 — `docs/sessions/S2-electron-shell.md`（已完成）
+
+## 运行桌面应用
+
+前置：Node ≥ 20、pnpm。仓库为 pnpm workspace monorepo。
+
+```bash
+pnpm install
+
+# 开发模式（HMR）
+pnpm --filter @ns2-studio/desktop dev
+
+# 构建 / 类型检查 / 单测
+pnpm --filter @ns2-studio/desktop build
+pnpm --filter @ns2-studio/desktop typecheck
+pnpm --filter @ns2-studio/desktop test
+```
+
+无硬件演示（Mock 串口）：`NS2_STUDIO_MOCK_SERIAL=1` 时 DeviceService 用内存 mock
+模拟 Hello/Version/Ack/报告接收，可完整走连接流程：
+
+```bash
+$env:NS2_STUDIO_MOCK_SERIAL = "1"   # PowerShell
+pnpm --filter @ns2-studio/desktop dev
+```
+
+原生模块（serialport）说明：serialport@12 的 `@serialport/bindings-cpp` 使用
+**N-API prebuild**，Electron 下无需 electron-rebuild / C++ 工具链即可加载；
+详见 `apps/desktop/README.md`。
 
 ## 硬件（已规划）
 
@@ -28,7 +57,9 @@ PC 端 Electron 应用：经 ESP32-S3 控制 Nintendo Switch 2，支持虚拟手
 - NS2 Pro
 - ESP32-S3-DevKitC-1
 
+接线与刷写：见 `docs/sessions/S0-hardware-smoke.md` 与 `docs/lab-notes/S0-wiring.md`。
+
 ## 状态
 
 - 文档基线日期：2026-08-21
-- 代码：尚未初始化 monorepo（待 S1/S2）
+- 代码：monorepo 已初始化；S1（protocol/pad-types）、S4（timeline-model）done，S2（desktop 壳 + 设备连接）done（mock 串口可演示，真机待 S0）

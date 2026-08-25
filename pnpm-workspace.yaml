@@ -1,0 +1,16 @@
+packages:
+  - packages/*
+  - apps/*
+  - tools/*
+
+allowBuilds:
+  esbuild: true
+  "@serialport/bindings-cpp": true
+  electron: true
+  vue-demi: true
+  node-hid: true
+  electron-winstaller: true
+
+minimumReleaseAgeExclude:
+  - '@vue/language-core@3.3.11'
+  - vue-tsc@3.3.11

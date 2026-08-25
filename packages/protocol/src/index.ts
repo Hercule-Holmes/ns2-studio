@@ -1,0 +1,25 @@
+export { EzDvCommand, Reply, SAVE_AMIIBO_PACKET_SIZE } from "./constants";
+export {
+  decodeReportPacket,
+  encodeReport,
+  type DecodedPacket,
+} from "./encodeReport";
+export {
+  buildChangeAmiiboIndexFrame,
+  buildHelloFrame,
+  buildSaveAmiiboMetaFrame,
+} from "./commands";
+
+import { EzDvCommand } from "./constants";
+import {
+  buildChangeAmiiboIndexFrame,
+  buildHelloFrame,
+  buildSaveAmiiboMetaFrame,
+} from "./commands";
+
+export const commands = {
+  ready: (): Uint8Array => Uint8Array.from([EzDvCommand.Ready]),
+  hello: buildHelloFrame,
+  changeAmiiboIndex: buildChangeAmiiboIndexFrame,
+  saveAmiiboHeader: buildSaveAmiiboMetaFrame,
+};

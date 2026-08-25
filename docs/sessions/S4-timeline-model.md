@@ -2,7 +2,7 @@
 
 | 字段 | 值 |
 |------|-----|
-| **Status** | `ready-after-S1` |
+| **Status** | `done` |
 | **Priority** | P0 |
 | **Depends on** | S1 |
 | **Blocks** | S5, S6, S7 |
@@ -70,4 +70,4 @@ export function createEmptyProject(name: string): Project
 
 | 日期 | 笔记 |
 |------|------|
-| | |
+| 2026-08-22 | 完成 `packages/timeline-model`：Project/Track/Clip schema（version 1）、`validateProject`（时间倒挂/未知 key/id 冲突等稳定错误码）、`compile`（buttons 位或、stick 线性插值、hat 后写覆盖、amiibo 旁路事件）、`bake` MVP（按键边沿→clips、摇杆降采样+死区）、`migrate` v1 identity、`createEmptyProject`。vitest 22 用例全绿；`tsc -p tsconfig.json` 通过；仅依赖 `@ns2-studio/pad-types`，无 electron/fs/serialport。 |

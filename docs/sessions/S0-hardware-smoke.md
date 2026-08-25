@@ -2,7 +2,7 @@
 
 | 字段 | 值 |
 |------|-----|
-| **Status** | `ready` |
+| **Status** | `in_progress` |
 | **Priority** | P0 |
 | **Depends on** | 无 |
 | **Blocks** | 真机相关的 S3/S6/S8/S9 验收；不阻塞 S1/S4 单测 |
@@ -104,4 +104,4 @@
 
 | 日期 | 笔记 |
 |------|------|
-| | |
+| 2026-08-22 | 软件完成：`tools/serial-smoke`（list/hello/neutral/press-a/stick-up/report）实现并验证；固件候选已记录于 `firmware/README.md`。硬件步骤（刷写/NS2 识别/稳定性快测）见 `docs/lab-notes/S0-wiring.md` 与 `S0-pending-hardware.md`，待人工/有硬件执行 |

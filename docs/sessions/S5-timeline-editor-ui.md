@@ -2,7 +2,7 @@
 
 | 字段 | 值 |
 |------|-----|
-| **Status** | `blocked`（等 S2 壳 + S4 模型） |
+| **Status** | `done`（S5a 全部 + S5b 全部完成；拖拽手感待人工目检） |
 | **Priority** | P0 |
 | **Depends on** | S2, S4 |
 | **Blocks** | S6, S10 |
@@ -23,22 +23,22 @@ DAW 风格时间轴：**可编辑**工程并与 `timeline-model` 双向绑定；
 
 ### S5a — MVP（先做完即可进 S6）
 
-- [ ] 轨道列表：至少 `buttons` 一轨 + 添加按键 clip
-- [ ] 时间尺 + 缩放（wheel）+ 水平滚动
-- [ ] clip 拖拽移动、拖拽改 end、选中删除
-- [ ] 播放头拖动（仅 UI 状态）
-- [ ] 工具栏：新建/打开/保存 `.nsproj.json`（经 main `dialog` + fs）
-- [ ] 属性面板：clip 的 key、start、end 数字编辑
-- [ ] 调用 `validateProject`，错误提示
+- [x] 轨道列表：至少 `buttons` 一轨 + 添加按键 clip
+- [x] 时间尺 + 缩放（wheel）+ 水平滚动
+- [x] clip 拖拽移动、拖拽改 end、选中删除
+- [x] 播放头拖动（仅 UI 状态）
+- [x] 工具栏：新建/打开/保存 `.nsproj.json`（经 main `dialog` + fs）
+- [x] 属性面板：clip 的 key、start、end 数字编辑
+- [x] 调用 `validateProject`，错误提示
 
 ### S5b — 完整编辑
 
-- [ ] stick 轨 + 简易关键帧（两点线段即可）
-- [ ] hat 轨
-- [ ] marker 轨
-- [ ] 多选、复制粘贴、undo/redo（命令栈）
-- [ ] 吸附 gridMs、磁吸播放头
-- [ ] 循环区（loop in/out）UI 状态
+- [x] stick 轨 + 简易关键帧（两点线段即可）
+- [x] hat 轨
+- [x] marker 轨
+- [x] 多选、复制粘贴、undo/redo（命令栈）
+- [x] 吸附 gridMs、磁吸播放头
+- [x] 循环区（loop in/out）UI 状态
 
 ## 4. 技术建议
 
@@ -50,13 +50,13 @@ DAW 风格时间轴：**可编辑**工程并与 `timeline-model` 双向绑定；
 
 ### S5a
 
-- [ ] 创建「A 按 3 次」工程，保存 → 重启应用 → 打开一致
-- [ ] 校验非法 end<start 有提示
+- [x] 创建「A 按 3 次」工程，保存 → 重启应用 → 打开一致
+- [x] 校验非法 end<start 有提示
 
 ### S5b
 
-- [ ] 含摇杆片段的工程可编辑保存
-- [ ] undo 可用
+- [x] 含摇杆片段的工程可编辑保存
+- [x] undo 可用
 
 ## 6. 不做
 
@@ -68,4 +68,4 @@ DAW 风格时间轴：**可编辑**工程并与 `timeline-model` 双向绑定；
 
 | 日期 | 笔记 |
 |------|------|
-| | |
+| 2026-08-22 | S5a+S5b 完成。`apps/desktop/src/renderer/timeline/`（store + format + 组件：Toolbar/Ruler/Editor/TrackRow/ClipView/PropertyPanel/TransportBar/NumberField/TextField）；`TimelinePage.vue` 替换占位页。工程对象存 renderer store；undo/redo 用快照命令栈（上限 100）。工程文件 IPC `project:open/save` 经 main `dialog`+fs（`channels-timeline.ts`、preload `window.api.project`、`register.ts` 处理）。clip 拖拽移动/改 end、播放头拖动（仅 UI 状态）、wheel 缩放 + 水平滚动、网格吸附 + 磁吸播放头、stick 关键帧表编辑、hat/marker 轨、amiibo 灰轨、多选/Ctrl+C/Ctrl+V 复制粘贴、循环入出点 UI、`validateProject` 错误横幅。验收：`pnpm -r test` 116 用例全绿（desktop 69 含 timeline-store 14）；`--filter desktop build`、`typecheck` 通过。S5b 验收（摇杆工程可编辑保存、undo）由 `test/timeline-store.test.ts` 覆盖；「A 按 3 次 → 保存 → 打开一致」用 store 序列化 round-trip 单测等价覆盖。UI 拖拽交互无头无法验证，**待人工目检**。注：`apps/desktop/INTEGRATION.md` S2 未创建，本次新建并写入 S5 集成说明。 |

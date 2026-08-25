@@ -1,0 +1,19 @@
+{
+  "name": "@ns2-studio/serial-smoke",
+  "version": "0.1.0",
+  "private": true,
+  "description": "S0 hardware smoke CLI: PC <-> ESP32-S3 serial reports",
+  "type": "module",
+  "bin": {
+    "ns2-smoke": "src/index.mjs"
+  },
+  "scripts": {
+    "start": "node src/index.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "serialport": "^12.0.0"
+  }
+}

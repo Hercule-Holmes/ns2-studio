@@ -1,0 +1,47 @@
+[
+  {
+    "name": "neutral",
+    "report": { "buttons": 0, "hat": 8, "lx": 128, "ly": 128, "rx": 128, "ry": 128 },
+    "hex": [0, 0, 1, 8, 4, 2, 1, 128]
+  },
+  {
+    "name": "button-A",
+    "report": { "buttons": 4, "hat": 8, "lx": 128, "ly": 128, "rx": 128, "ry": 128 },
+    "hex": [0, 1, 1, 8, 4, 2, 1, 128]
+  },
+  {
+    "name": "button-B",
+    "report": { "buttons": 2, "hat": 8, "lx": 128, "ly": 128, "rx": 128, "ry": 128 },
+    "hex": [0, 0, 65, 8, 4, 2, 1, 128]
+  },
+  {
+    "name": "button-A+B",
+    "report": { "buttons": 6, "hat": 8, "lx": 128, "ly": 128, "rx": 128, "ry": 128 },
+    "hex": [0, 1, 65, 8, 4, 2, 1, 128]
+  },
+  {
+    "name": "button-A+B+L",
+    "report": { "buttons": 22, "hat": 8, "lx": 128, "ly": 128, "rx": 128, "ry": 128 },
+    "hex": [0, 5, 65, 8, 4, 2, 1, 128]
+  },
+  {
+    "name": "hat-LEFT",
+    "report": { "buttons": 0, "hat": 6, "lx": 128, "ly": 128, "rx": 128, "ry": 128 },
+    "hex": [0, 0, 0, 104, 4, 2, 1, 128]
+  },
+  {
+    "name": "stick-LY-0",
+    "report": { "buttons": 0, "hat": 8, "lx": 128, "ly": 0, "rx": 128, "ry": 128 },
+    "hex": [0, 0, 1, 8, 0, 2, 1, 128]
+  },
+  {
+    "name": "stick-LY-255",
+    "report": { "buttons": 0, "hat": 8, "lx": 128, "ly": 255, "rx": 128, "ry": 128 },
+    "hex": [0, 0, 1, 8, 7, 126, 1, 128]
+  },
+  {
+    "name": "stick-LX-0",
+    "report": { "buttons": 0, "hat": 8, "lx": 0, "ly": 128, "rx": 128, "ry": 128 },
+    "hex": [0, 0, 1, 0, 4, 2, 1, 128]
+  }
+]

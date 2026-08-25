@@ -4,18 +4,18 @@
 
 | ID | 名称 | 优先级 | 依赖 | 可并行泳道 | 预估 | 状态 |
 |----|------|--------|------|------------|------|------|
-| **S0** | 硬件通路冒烟 PC→S3→NS2 | P0 | 无 | 硬件 | 0.5–2d | ready |
+| **S0** | 硬件通路冒烟 PC→S3→NS2 | P0 | 无 | 硬件 | 0.5–2d | in_progress |
 | **S0b** | 固件 NS2 兼容（仅 S0 失败时） | P0 | S0 fail | 固件 | 不确定 | blocked-on-S0 |
-| **S1** | `packages/protocol` + pad-types | P0 | 无* | 基础库 | 1d | ready |
-| **S2** | Electron 壳 + 设备连接 | P0 | S1 | 桌面 | 1–2d | blocked |
-| **S3** | 虚拟手柄 + InputHub | P0 | S2 | 桌面 | 1–2d | blocked |
-| **S4** | timeline-model + 编译器 | P0 | S1 | 基础库 | 1–2d | ready-after-S1 |
-| **S5** | 时间轴编辑器 UI | P0 | S4, S2 | 桌面-UI | 3–5d | blocked |
-| **S6** | 时间轴回放引擎对接设备 | P0 | S3, S4, S5 | 桌面 | 1–2d | blocked |
-| **S7** | 录制帧流 + 烘焙时间轴 | P1 | S3, S4 | 桌面 | 1–2d | blocked |
-| **S8** | NS2 Pro / 通用手柄采集转发 | P1 | S3 | 输入 | 2–3d | blocked |
-| **S9** | Amiibo 库与协议下发 | P1 | S2, 固件能力 | 桌面 | 1–2d | blocked |
-| **S10** | Amiibo 时间轴轨道 | P1 | S5, S6, S9 | 桌面 | 0.5–1d | blocked |
+| **S1** | `packages/protocol` + pad-types | P0 | 无* | 基础库 | 1d | done |
+| **S2** | Electron 壳 + 设备连接 | P0 | S1 | 桌面 | 1–2d | done |
+| **S3** | 虚拟手柄 + InputHub | P0 | S2 | 桌面 | 1–2d | done |
+| **S4** | timeline-model + 编译器 | P0 | S1 | 基础库 | 1–2d | done |
+| **S5** | 时间轴编辑器 UI | P0 | S4, S2 | 桌面-UI | 3–5d | done |
+| **S6** | 时间轴回放引擎对接设备 | P0 | S3, S4, S5 | 桌面 | 1–2d | done |
+| **S7** | 录制帧流 + 烘焙时间轴 | P1 | S3, S4 | 桌面 | 1–2d | done |
+| **S8** | NS2 Pro 采集转发 | P1 | S3 | 输入 | 2–3d | in_progress |
+| **S9** | Amiibo 库与协议下发 | P1 | S2, 固件能力 | 桌面 | 1–2d | done |
+| **S10** | Amiibo 时间轴轨道 | P1 | S5, S6, S9 | 桌面 | 0.5–1d | done |
 | **S11** | 工程管理/设置/安装包打磨 | P2 | S6 | 桌面 | 1–2d | blocked |
 | **S12** | 文档收口与端到端验收 | P2 | 主路径完成 | 架构 | 1d | blocked |
 

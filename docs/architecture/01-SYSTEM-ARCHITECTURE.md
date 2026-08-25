@@ -22,7 +22,7 @@
 │         │                │                │                      │
 │  ┌──────▼──────┐  ┌──────▼──────┐  ┌──────▼───────┐             │
 │  │ Protocol    │  │ ProCapture  │  │ ProjectStore │             │
-│  │ encode/dec  │  │ (HID/XInput)│  │              │             │
+│  │ encode/dec  │  │ (node-hid)  │  │              │             │
 │  └──────┬──────┘  └─────────────┘  └──────────────┘             │
 └─────────┼────────────────────────────────────────────────────────┘
           │ USB-UART
@@ -73,7 +73,7 @@ Project JSON
 ### 3.3 Pro 转发 + 可选录制
 
 ```text
-HID/XInput poll
+node-hid poll（NS2 Pro 有线）
   → mapToPadReport
   → InputHub (source=forward)
   → Serial
