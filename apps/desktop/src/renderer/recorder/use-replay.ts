@@ -31,10 +31,14 @@ export function useReplay(): ReplayHandle {
   async function start(rec: Recording): Promise<void> {
     stop();
     if (rec.frames.length === 0) return;
-    const loadRes = await window.api.timeline.load({
-      frames: rec.frames,
-      amiiboEvents: [],
-    });
+    // `rec` may be a Vue ref()'d object (deep-reactive proxies). Electron IPC
+    // cannot structured-clone proxies ("An object could not be cloned"), so
+    // send a plain JSON copy.
+    const loadRes = await window.api.timeline.load(
+      JSON.parse(
+        JSON.stringify({ frames: rec.frames, amiiboEvents: [] }),
+      ) as { frames: Array<Record<string, unknown>>; amiiboEvents: unknown[] },
+    );
     if (!loadRes.ok) {
       throw new Error(loadRes.error ?? "加载录制到回放引擎失败");
     }

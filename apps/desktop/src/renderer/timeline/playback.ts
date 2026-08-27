@@ -1,4 +1,5 @@
 import { reactive } from "vue";
+import type { Project } from "@ns2-studio/timeline-model";
 import { timelineStore } from "./store";
 
 export const PLAYBACK_HZ = 250;
@@ -68,7 +69,11 @@ export function createPlaybackController(): {
   });
 
   async function load(): Promise<PlaybackResult> {
-    const res = await window.api.timeline.load(timelineStore.project, {
+    // timelineStore.project is a Vue reactive proxy; Electron IPC's structured
+    // clone cannot serialize proxies ("An object could not be cloned"), so pass
+    // a plain JSON copy.
+    const project = JSON.parse(JSON.stringify(timelineStore.project)) as Project;
+    const res = await window.api.timeline.load(project, {
       hz: PLAYBACK_HZ,
     });
     if (!res.ok) return { ok: false, error: res.error ?? "加载失败" };
