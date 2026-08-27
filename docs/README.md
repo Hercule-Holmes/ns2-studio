@@ -8,6 +8,8 @@
 
 | 文档 | 用途 |
 |------|------|
+| [NEWBIE-GUIDE.md](./NEWBIE-GUIDE.md) | **Electron 新手向**：项目结构、系统流程、代码地图（先看这个） |
+| [modules/](./modules/) | **模块文档**：先总后分，覆盖除 Amiibo 外的全部模块 |
 | [architecture/00-VISION.md](./architecture/00-VISION.md) | 产品愿景、范围、非目标 |
 | [architecture/01-SYSTEM-ARCHITECTURE.md](./architecture/01-SYSTEM-ARCHITECTURE.md) | 系统架构、模块边界、数据流 |
 | [architecture/02-PROTOCOL.md](./architecture/02-PROTOCOL.md) | PC↔MCU 协议（对齐 EasyCon） |
