@@ -9,6 +9,7 @@
 - `S0-smoke-result.md` — 冒烟通过/失败
 - `S0b-*.md` — 固件兼容实验
 - `S8-hid-capture.md` — Pro HID 样例（可打码）
+- `wake-research.md` — 远程场景 NS 唤醒机制调研（S13+ 前置）
 
 请勿提交：
 

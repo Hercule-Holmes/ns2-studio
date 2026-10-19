@@ -28,6 +28,8 @@ desktop.ini
 logs/
 docs/lab-notes/**
 !docs/lab-notes/README.md
+# 工程规格类笔记入库（不含个人抓包/账号数据）
+!docs/lab-notes/wake-research.md
 
 # User data / dumps
 *.bin
