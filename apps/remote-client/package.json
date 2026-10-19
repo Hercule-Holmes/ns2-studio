@@ -1,0 +1,20 @@
+{
+  "name": "@ns2-studio/remote-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Phone web client for NS2 Studio remote bridge (S14, served by the desktop gateway)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@ns2-studio/pad-types": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3",
+    "vite": "^7.3.6"
+  }
+}

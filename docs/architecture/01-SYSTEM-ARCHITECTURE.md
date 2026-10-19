@@ -43,6 +43,7 @@
 | `apps/desktop` main DeviceSvc | Main | 串口生命周期、心跳、下发、Amiibo 分包 | 时间轴 UI |
 | `apps/desktop` main InputHub | Main | 选择唯一输出源，统一 `applyReport` | 协议细节 |
 | `apps/desktop` main ProCapture | Main | 读 Pro/通用手柄 → PadReport | 串口 |
+| `apps/desktop` main RemoteGateway | Main | 手机 WS 桥：鉴权/单会话/看门狗 → hub `remote` 源（08-REMOTE.md） | 视频、协议细节 |
 | `apps/desktop` main TimelineEng | Main | 高分辨率时钟回放 | 编辑手感 |
 | `apps/desktop` renderer * | Renderer | 可视化编辑与展示 | 直接碰 serialport |
 
@@ -92,6 +93,16 @@ Timeline Amiibo clip at T
   → ChangeAmiiboIndex(slot)
 ```
 
+### 3.5 手机远程操控（S13+，详见 08-REMOTE.md）
+
+```text
+手机浏览器 (触屏手柄)
+  → WS {pad} → RemoteGateway(token 鉴权/单会话/看门狗)
+  → InputHub (source=remote)
+  → Protocol → Serial → MCU
+反向: state 广播 → WS → 手机状态栏
+```
+
 ## 4. 输出源仲裁（InputHub）
 
 同一时刻仅一个 **active source**：
@@ -102,6 +113,7 @@ Timeline Amiibo clip at T
 | `manual` | 虚拟垫/键位捕获开启 |
 | `forward` | Pro 转发开启 |
 | `timeline` | 时间轴播放中 |
+| `remote` | 手机远程会话接管（08-REMOTE.md §3） |
 
 切换 source 时必须：`resetToNeutral()` 再切换，防止卡键。
 
@@ -124,6 +136,7 @@ Timeline Amiibo clip at T
 | `timeline:*` | 双向 | load/play/pause/stop/seek |
 | `capture:*` | 双向 | list devices / start forward / record |
 | `amiibo:*` | 双向 | list/import/save/select |
+| `remote:*` | 双向 | 远程桥管理（开关/token/QR/会话状态/信令转发，08-REMOTE.md） |
 | `log:*` | M→R | 日志流 |
 | `playback:time` | M→R | 播放头时间 |
 

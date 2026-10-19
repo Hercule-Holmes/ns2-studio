@@ -15,7 +15,14 @@ function tempDir(): string {
 describe("ConfigStore (AppConfig §6)", () => {
   it("returns defaults when the file is missing", () => {
     const store = new ConfigStore(join(tempDir(), "config.json"));
-    expect(store.get()).toEqual(DEFAULT_APP_CONFIG);
+    const cfg = store.get();
+    // First load mints the remote token (08-REMOTE.md §5): everything else
+    // equals the defaults.
+    const { remote: expectedRemote, ...expectedRest } = DEFAULT_APP_CONFIG;
+    const { remote: actualRemote, ...actualRest } = cfg;
+    expect(actualRest).toEqual(expectedRest);
+    expect(actualRemote.token).toMatch(/^[0-9a-f]{32}$/);
+    expect({ ...actualRemote, token: "" }).toEqual(expectedRemote);
   });
 
   it("deep-merges partial updates without dropping siblings", () => {
@@ -42,11 +49,16 @@ describe("ConfigStore (AppConfig §6)", () => {
     expect(reloaded.get().timeline.gridMs).toBe(25);
   });
 
-  it("survives a corrupt file (falls back to defaults)", () => {
+  it("survives a corrupt file (falls back to defaults, mints token)", () => {
     const file = join(tempDir(), "config.json");
     writeFileSync(file, "{ not json", "utf8");
     const store = new ConfigStore(file);
-    expect(store.get()).toEqual(DEFAULT_APP_CONFIG);
+    const cfg = store.get();
+    expect(cfg.remote.token).toMatch(/^[0-9a-f]{32}$/);
+    const { remote: expectedRemote, ...expectedRest } = DEFAULT_APP_CONFIG;
+    const { remote: actualRemote, ...actualRest } = cfg;
+    expect(actualRest).toEqual(expectedRest);
+    expect({ ...actualRemote, token: "" }).toEqual(expectedRemote);
   });
 
   it("writes pretty-printed JSON on disk", () => {

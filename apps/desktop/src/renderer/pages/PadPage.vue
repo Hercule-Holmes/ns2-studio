@@ -26,6 +26,7 @@ const SOURCES: Array<{ value: HubSource; label: string }> = [
   { value: "manual", label: "手动 (manual)" },
   { value: "forward", label: "转发 (forward)" },
   { value: "timeline", label: "时间轴 (timeline)" },
+  { value: "remote", label: "手机远程 (remote)" },
 ];
 
 const STICK_TRAVEL = 30;

@@ -175,6 +175,14 @@ interface AppConfig {
   capture: { deviceId?: string; tickHz: number; triggerThreshold: number; swapABXY: boolean };
   timeline: { defaultHz: number; gridMs: number };
   ui: { theme: "dark" | "light" };
+  /** S13 远程桥（08-REMOTE.md §7） */
+  remote: {
+    enabled: boolean;      // 服务开关，默认 false
+    port: number;          // HTTP/WS 端口，默认 8787
+    token: string;         // 访问令牌，首次加载自动生成（32 hex）
+    heartbeatMs: number;   // 客户端 ping 间隔，默认 250
+    watchdogMs: number;    // 服务端会话超时，默认 1000
+  };
 }
 ```
 

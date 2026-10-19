@@ -1,4 +1,5 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { randomBytes } from "node:crypto";
 import { dirname } from "node:path";
 import type { AppConfig, DeepPartialAppConfig } from "../../shared/ipc";
 
@@ -8,7 +9,18 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
   capture: { tickHz: 250, triggerThreshold: 128, swapABXY: false },
   timeline: { defaultHz: 250, gridMs: 10 },
   ui: { theme: "dark" },
+  remote: {
+    enabled: false,
+    port: 8787,
+    token: "",
+    heartbeatMs: 250,
+    watchdogMs: 1000,
+  },
 };
+
+export function generateRemoteToken(): string {
+  return randomBytes(16).toString("hex");
+}
 
 function deepMerge<T extends object>(base: T, patch: DeepPartialAppConfig): T {
   const out: Record<string, unknown> = { ...(base as Record<string, unknown>) };
@@ -55,9 +67,19 @@ export class ConfigStore {
   private load(): AppConfig {
     try {
       const parsed = JSON.parse(readFileSync(this.file, "utf8")) as Partial<AppConfig>;
-      return deepMerge(DEFAULT_APP_CONFIG, parsed);
+      const merged = deepMerge(DEFAULT_APP_CONFIG, parsed);
+      // First-run: mint the remote access token and persist it (08-REMOTE.md §5).
+      if (!merged.remote.token) {
+        merged.remote.token = generateRemoteToken();
+        this.data = merged;
+        this.save();
+      }
+      return merged;
     } catch {
-      return structuredClone(DEFAULT_APP_CONFIG);
+      return {
+        ...structuredClone(DEFAULT_APP_CONFIG),
+        remote: { ...DEFAULT_APP_CONFIG.remote, token: generateRemoteToken() },
+      };
     }
   }
 

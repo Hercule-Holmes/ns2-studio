@@ -13,6 +13,7 @@ import {
   PadChannels,
   ProjectChannels,
   RecorderChannels,
+  RemoteChannels,
   SettingsChannels,
   TimelineChannels,
 } from "../shared/channels";
@@ -33,6 +34,8 @@ import type {
   ProjectOpenResult,
   ProjectSaveResult,
   RecorderState,
+  RemoteSignalPayload,
+  RemoteStatus,
   RendererApi,
   TimelineLoadResult,
   TimelinePlayResult,
@@ -149,6 +152,20 @@ const api: RendererApi = {
       ipcRenderer.invoke(CaptureChannels.getStatus),
     onStateChanged: (cb: (status: CaptureStatus) => void) =>
       subscribe<CaptureStatus>(CaptureChannels.stateChanged, cb),
+  },
+  remote: {
+    getStatus: (): Promise<RemoteStatus> =>
+      ipcRenderer.invoke(RemoteChannels.getStatus),
+    setEnabled: (enabled: boolean) =>
+      ipcRenderer.invoke(RemoteChannels.setEnabled, enabled),
+    rotateToken: (): Promise<RemoteStatus> =>
+      ipcRenderer.invoke(RemoteChannels.rotateToken),
+    onStateChanged: (cb: (status: RemoteStatus) => void) =>
+      subscribe<RemoteStatus>(RemoteChannels.stateChanged, cb),
+    sendSignal: (payload: unknown): Promise<void> =>
+      ipcRenderer.invoke(RemoteChannels.signal, payload),
+    onSignal: (cb: (msg: RemoteSignalPayload) => void) =>
+      subscribe<RemoteSignalPayload>(RemoteChannels.signal, cb),
   },
 };
 

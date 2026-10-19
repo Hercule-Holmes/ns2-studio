@@ -12,6 +12,7 @@ import { AmiiboService } from "./amiibo/service";
 import { Recorder } from "./recorder/recorder";
 import { TimelineEngine } from "./timeline/engine";
 import { CaptureService } from "./capture/capture-service";
+import { RemoteGateway } from "./remote/gateway";
 import { registerIpc } from "./ipc/register";
 
 const device = new DeviceService({
@@ -70,6 +71,15 @@ const timeline = new TimelineEngine({
 // S8: 有线 NS2 Pro 采集转发（node-hid -> PadReport -> hub forward 源）。
 const capture = new CaptureService(hub);
 
+// S13: 手机远程桥（08-REMOTE.md）。静态页在 out/remote-client（S14 构建产物）。
+const remote = new RemoteGateway({
+  hub,
+  device,
+  config,
+  staticDir: join(__dirname, "../remote-client"),
+  log: (line) => console.log(line),
+});
+
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow(): void {
@@ -103,8 +113,11 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
-  registerIpc(device, settings, config, logger, hub, amiibo, recorder, timeline, capture, () => mainWindow);
+  registerIpc(device, settings, config, logger, hub, amiibo, recorder, timeline, capture, remote, () => mainWindow);
   createWindow();
+  if (config.get().remote.enabled) {
+    void remote.start();
+  }
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -116,6 +129,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
+  void remote.dispose();
   timeline.dispose();
   capture.dispose();
   device.shutdown();

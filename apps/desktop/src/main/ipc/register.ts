@@ -14,6 +14,7 @@ import {
   PadChannels,
   ProjectChannels,
   RecorderChannels,
+  RemoteChannels,
   SettingsChannels,
   TimelineChannels,
 } from "../../shared/channels";
@@ -28,6 +29,7 @@ import type {
   LogLine,
   DeviceStatus,
   RecorderState,
+  RemoteStatus,
   TimelinePlaybackState,
 } from "../../shared/ipc";
 import { serializeRecording } from "../../shared/nsrec";
@@ -40,6 +42,7 @@ import type { AmiiboService } from "../amiibo/service";
 import type { Recorder } from "../recorder/recorder";
 import type { TimelineEngine } from "../timeline/engine";
 import type { CaptureService } from "../capture/capture-service";
+import type { RemoteGateway } from "../remote/gateway";
 import { listSerialPorts } from "../device/serial-factory";
 
 const MAX_LOG_LINES = 500;
@@ -59,6 +62,7 @@ export function registerIpc(
   recorder: Recorder,
   timeline: TimelineEngine,
   capture: CaptureService,
+  remote: RemoteGateway,
   getWindow: () => BrowserWindow | null,
 ): () => void {
   const logBuffer: LogLine[] = [];
@@ -105,6 +109,15 @@ export function registerIpc(
     getWindow()?.webContents.send(CaptureChannels.stateChanged, status);
   };
 
+  const onRemoteStatusChanged = (status: RemoteStatus) => {
+    getWindow()?.webContents.send(RemoteChannels.stateChanged, status);
+  };
+
+  // Phone → renderer WebRTC signaling (S15); renderer replies via sendSignal.
+  const onRemoteSignal = (msg: { payload: unknown }) => {
+    getWindow()?.webContents.send(RemoteChannels.signal, msg);
+  };
+
   device.on("log", pushLog);
   device.on("stateChanged", onStateChanged);
   hub.on("stateChanged", onHubStateChanged);
@@ -116,6 +129,8 @@ export function registerIpc(
   timeline.on("log", onTimelineLog);
   capture.on("stateChanged", onCaptureStateChanged);
   capture.on("log", pushLog);
+  const offRemoteStatus = remote.onStatus(onRemoteStatusChanged);
+  const offRemoteSignal = remote.onSignal(onRemoteSignal);
 
   ipcMain.handle(DeviceChannels.listPorts, () => listSerialPorts());
   ipcMain.handle(
@@ -335,6 +350,15 @@ export function registerIpc(
   ipcMain.handle(CaptureChannels.stop, () => capture.stop());
   ipcMain.handle(CaptureChannels.getStatus, () => capture.getStatus());
 
+  ipcMain.handle(RemoteChannels.getStatus, () => remote.getStatus());
+  ipcMain.handle(RemoteChannels.setEnabled, (_e, enabled: boolean) =>
+    remote.setEnabled(enabled === true),
+  );
+  ipcMain.handle(RemoteChannels.rotateToken, () => remote.rotateToken());
+  ipcMain.handle(RemoteChannels.signal, (_e, payload: unknown) => {
+    remote.sendSignalToClient(payload);
+  });
+
   return () => {
     device.off("log", pushLog);
     device.off("stateChanged", onStateChanged);
@@ -347,5 +371,7 @@ export function registerIpc(
     timeline.off("log", onTimelineLog);
     capture.off("stateChanged", onCaptureStateChanged);
     capture.off("log", pushLog);
+    offRemoteStatus();
+    offRemoteSignal();
   };
 }

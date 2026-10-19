@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0d0f13" />
+    <title>NS2 Studio 远程</title>
+  </head>
+  <body>
+    <div id="app">
+      <div class="statusbar">
+        <span class="dot" id="st-dot"></span>
+        <span id="st-text">未连接</span>
+        <span class="spacer"></span>
+        <span class="dim" id="st-source"></span>
+        <span class="dim" id="st-rtt"></span>
+      </div>
+
+      <!-- token gate -->
+      <div class="gate" id="gate">
+        <div style="font-size: 20px; font-weight: 700">NS2 Studio 远程</div>
+        <div class="hint">
+          请输入访问令牌（桌面端「远程」页二维码链接中已包含）。
+        </div>
+        <input
+          id="gate-token"
+          type="text"
+          inputmode="text"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="访问令牌"
+        />
+        <button class="btn primary" id="gate-connect">连接</button>
+        <div class="hint" id="gate-error" style="color: var(--err)"></div>
+      </div>
+
+      <!-- main stage -->
+      <div class="stage" id="stage" style="display: none">
+        <div class="video-slot" id="video-slot">视频画面将在后续版本提供（S15）</div>
+
+        <div class="pad-area">
+          <div class="col">
+            <div class="shoulder-row">
+              <button class="ctrl" data-btn="L">L</button>
+              <button class="ctrl" data-btn="ZL">ZL</button>
+              <button class="ctrl" data-btn="MINUS">-</button>
+              <button class="ctrl" data-btn="LCLICK">LS</button>
+            </div>
+            <div class="dpad">
+              <button class="ctrl up" data-hat="0">▲</button>
+              <button class="ctrl left" data-hat="6">◀</button>
+              <button class="ctrl right" data-hat="2">▶</button>
+              <button class="ctrl down" data-hat="4">▼</button>
+            </div>
+            <div class="stick" id="stick">
+              <div class="knob" id="stick-knob"></div>
+            </div>
+          </div>
+
+          <div class="col">
+            <div class="shoulder-row">
+              <button class="ctrl" data-btn="R">R</button>
+              <button class="ctrl" data-btn="ZR">ZR</button>
+              <button class="ctrl" data-btn="PLUS">+</button>
+              <button class="ctrl" data-btn="RCLICK">RS</button>
+            </div>
+            <div class="face-grid">
+              <button class="face x" data-btn="X">X</button>
+              <button class="face a" data-btn="A">A</button>
+              <button class="face b" data-btn="B">B</button>
+              <button class="face y" data-btn="Y">Y</button>
+            </div>
+            <div class="sys-row">
+              <button class="ctrl" data-btn="HOME">HOME</button>
+              <button class="ctrl" data-btn="CAPTURE">CAP</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <button class="btn" id="btn-wake">唤醒 NS</button>
+          <button class="btn primary" id="btn-take">接管控制</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

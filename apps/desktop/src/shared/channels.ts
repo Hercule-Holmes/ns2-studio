@@ -11,3 +11,4 @@ export * from "./channels-hub";
 export * from "./channels-pad";
 export * from "./channels-capture";
 export * from "./channels-recorder";
+export * from "./channels-remote";

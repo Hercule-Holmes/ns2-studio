@@ -56,6 +56,14 @@ export interface AppConfig {
   capture: { deviceId?: string; tickHz: number; triggerThreshold: number; swapABXY: boolean };
   timeline: { defaultHz: number; gridMs: number };
   ui: { theme: "dark" | "light" };
+  /** Remote bridge (08-REMOTE.md §7). */
+  remote: {
+    enabled: boolean;
+    port: number;
+    token: string;
+    heartbeatMs: number;
+    watchdogMs: number;
+  };
 }
 
 /** Recursive partial so renderer may patch a single nested config field. */
@@ -108,7 +116,7 @@ export interface SettingsApi {
 }
 
 /** Active output source of InputHub (01-SYSTEM-ARCHITECTURE.md §4). */
-export type HubSource = "idle" | "manual" | "forward" | "timeline";
+export type HubSource = "idle" | "manual" | "forward" | "timeline" | "remote";
 
 export interface HubState {
   activeSource: HubSource;
@@ -207,6 +215,7 @@ export interface RendererApi {
   timeline: TimelineApi;
   amiibo: AmiiboApi;
   capture: CaptureApi;
+  remote: RemoteApi;
 }
 
 // ---------------------------------------------------------------------------
@@ -351,4 +360,56 @@ export interface TimelineApi {
   /** M→R head position, throttled to 30–60fps. */
   onTime(cb: (ms: number) => void): () => void;
   onState(cb: (state: TimelinePlaybackState) => void): () => void;
+}
+
+// ---------------------------------------------------------------------------
+// Remote bridge (S13, 08-REMOTE.md)
+// ---------------------------------------------------------------------------
+
+export type RemoteServerState = "stopped" | "starting" | "running" | "error";
+
+export interface RemoteClientInfo {
+  /** remote address (ip:port) */
+  peer: string;
+  connectedAt: number;
+  /** last observed round-trip ms (from WS ping/pong) */
+  rttMs?: number;
+}
+
+export interface RemoteStatus {
+  serverState: RemoteServerState;
+  enabled: boolean;
+  port: number;
+  /** full token — only ever leaves main via this channel for QR display */
+  token: string;
+  client: RemoteClientInfo | null;
+  error?: string;
+  /**
+   * Reachable http base URLs (LAN + tailnet etc.), e.g.
+   * `http://192.168.1.10:8787/?t=<token>` — computed in main via
+   * os.networkInterfaces().
+   */
+  urls: string[];
+}
+
+export interface RemoteSignalPayload {
+  /** opaque JSON envelope for WebRTC signaling (S15), forwarded verbatim */
+  payload: unknown;
+}
+
+/**
+ * Desktop-side management API for the phone remote bridge. The WS protocol
+ * itself lives entirely in main (08-REMOTE.md §4); the renderer only manages
+ * lifecycle + display and relays WebRTC signaling for S15.
+ */
+export interface RemoteApi {
+  getStatus(): Promise<RemoteStatus>;
+  setEnabled(enabled: boolean): Promise<RemoteStatus>;
+  /** Generate a fresh token; kicks any active client. */
+  rotateToken(): Promise<RemoteStatus>;
+  onStateChanged(cb: (status: RemoteStatus) => void): () => void;
+  /** R→M: forward a signaling envelope to the current phone client (S15). */
+  sendSignal(payload: unknown): Promise<void>;
+  /** M→R: signaling envelope from the phone client (S15). */
+  onSignal(cb: (msg: RemoteSignalPayload) => void): () => void;
 }

@@ -4,6 +4,7 @@ import DevicePage from "./pages/DevicePage.vue";
 import PadPage from "./pages/PadPage.vue";
 import TimelinePage from "./pages/TimelinePage.vue";
 import AmiiboPage from "./pages/AmiiboPage.vue";
+import RemotePage from "./pages/RemotePage.vue";
 import SettingsPage from "./pages/SettingsPage.vue";
 
 /**
@@ -21,6 +22,7 @@ export const NAV_ITEMS: NavItem[] = [
   { path: "/pad", title: "手柄", name: "pad" },
   { path: "/timeline", title: "时间轴", name: "timeline" },
   { path: "/amiibo", title: "Amiibo", name: "amiibo" },
+  { path: "/remote", title: "远程", name: "remote" },
   { path: "/settings", title: "设置", name: "settings" },
 ];
 
@@ -29,6 +31,7 @@ const PAGE_COMPONENTS: Record<string, unknown> = {
   pad: PadPage,
   timeline: TimelinePage,
   amiibo: AmiiboPage,
+  remote: RemotePage,
   settings: SettingsPage,
 };
 
