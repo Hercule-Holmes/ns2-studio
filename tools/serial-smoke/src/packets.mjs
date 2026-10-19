@@ -5,6 +5,10 @@ export const STICK_UP_REPORT = Object.freeze([0x00, 0x00, 0x01, 0x08, 0x00, 0x02
 export const HELLO_COMMAND = Object.freeze([0xa5, 0x81]);
 export const REPLY_HELLO = 0x80;
 
+export const WAKE_COMMAND = Object.freeze([0xa5, 0x92]);
+export const REPLY_ACK = 0xff;
+export const REPLY_ERROR = 0x00;
+
 export function pack7Bit(serialized) {
   let n = 0;
   let bits = 0;

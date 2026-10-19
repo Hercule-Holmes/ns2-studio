@@ -4,6 +4,10 @@ export function buildHelloFrame(): Uint8Array {
   return Uint8Array.from([EzDvCommand.Ready, EzDvCommand.Hello]);
 }
 
+export function buildWakeFrame(): Uint8Array {
+  return Uint8Array.from([EzDvCommand.Ready, EzDvCommand.Wake]);
+}
+
 export function buildChangeAmiiboIndexFrame(index: number): Uint8Array {
   return Uint8Array.from([
     EzDvCommand.Ready,

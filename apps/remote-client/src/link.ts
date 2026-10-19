@@ -161,7 +161,13 @@ export class RemoteLink {
   private startPing(): void {
     this.stopPing();
     this.pingTimer = window.setInterval(() => {
-      this.send({ type: "ping", t: Date.now() });
+      // Measured RTT rides along so the server can widen its watchdog on
+      // lossy paths (DERP relay / 4G) instead of killing healthy sessions.
+      this.send({
+        type: "ping",
+        t: Date.now(),
+        rttMs: this.rttMs ?? undefined,
+      });
     }, this.heartbeatMs);
   }
 

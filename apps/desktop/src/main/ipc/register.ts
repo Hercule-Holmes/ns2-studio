@@ -143,6 +143,7 @@ export function registerIpc(
   ipcMain.handle(DeviceChannels.sendReport, (_e, report: PadReport) =>
     device.sendReport(report),
   );
+  ipcMain.handle(DeviceChannels.wake, () => device.wake());
   ipcMain.handle(HubChannels.setSource, (_e, source: HubSource) =>
     hub.setSource(source),
   );

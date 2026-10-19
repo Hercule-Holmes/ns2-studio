@@ -2,6 +2,10 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import QRCode from "qrcode";
 import type { RemoteStatus } from "../../shared/ipc";
+import {
+  VideoStreamService,
+  type VideoStreamStatus,
+} from "../remote/video-stream";
 
 const status = ref<RemoteStatus | null>(null);
 const loaded = ref(false);
@@ -14,6 +18,45 @@ const copied = ref(false);
 let offState: (() => void) | null = null;
 let clockTimer: number | null = null;
 const nowTick = ref(Date.now());
+
+// S15 spike: capture-card enumeration + local getUserMedia preview.
+// Results go to docs/lab-notes/S15-capture-card.md; WebRTC lands later.
+interface VideoDeviceOption {
+  deviceId: string;
+  label: string;
+}
+
+const videoDevices = ref<VideoDeviceOption[]>([]);
+const selectedVideoDeviceId = ref("");
+const keepaliveMs = ref(20000);
+const previewing = ref(false);
+const videoBusy = ref(false);
+const videoError = ref<string | null>(null);
+const videoSettings = ref<{
+  width?: number;
+  height?: number;
+  frameRate?: number;
+} | null>(null);
+const videoEl = ref<HTMLVideoElement | null>(null);
+let videoStream: MediaStream | null = null;
+
+const webrtcStatus = ref<VideoStreamStatus>("idle");
+const webrtcDetail = ref<string | null>(null);
+let videoStreamService: VideoStreamService | null = null;
+let offSignal: (() => void) | null = null;
+
+const webrtcStatusText = computed(() => {
+  switch (webrtcStatus.value) {
+    case "connecting":
+      return "手机协商中…";
+    case "live":
+      return "下行中";
+    case "error":
+      return `错误：${webrtcDetail.value ?? "未知"}`;
+    default:
+      return "空闲";
+  }
+});
 
 const stateText = computed(() => {
   switch (status.value?.serverState) {
@@ -38,7 +81,7 @@ const sessionDuration = computed(() => {
 
 async function refreshQr(): Promise<void> {
   qrDataUrl.value = null;
-  const url = status.value?.urls[selectedUrl.value];
+  const url = status.value?.urls[selectedUrl.value]?.url;
   if (!url) return;
   try {
     qrDataUrl.value = await QRCode.toDataURL(url, {
@@ -86,7 +129,7 @@ async function rotate(): Promise<void> {
 }
 
 async function copyUrl(): Promise<void> {
-  const url = status.value?.urls[selectedUrl.value];
+  const url = status.value?.urls[selectedUrl.value]?.url;
   if (!url) return;
   try {
     await navigator.clipboard.writeText(url);
@@ -97,19 +140,127 @@ async function copyUrl(): Promise<void> {
   }
 }
 
+function endpointLabel(address: string, kind: "lan" | "tailscale"): string {
+  return kind === "tailscale" ? `${address}（Tailscale · 外出）` : `${address}（局域网）`;
+}
+
+async function refreshVideoDevices(): Promise<void> {
+  try {
+    const all = await navigator.mediaDevices.enumerateDevices();
+    videoDevices.value = all
+      .filter((d) => d.kind === "videoinput")
+      .map((d, i) => ({
+        deviceId: d.deviceId,
+        label: d.label || `摄像头 ${i + 1}（未授权，先预览一次）`,
+      }));
+    if (
+      selectedVideoDeviceId.value &&
+      !videoDevices.value.some((d) => d.deviceId === selectedVideoDeviceId.value)
+    ) {
+      selectedVideoDeviceId.value = "";
+    }
+  } catch (err) {
+    videoError.value = err instanceof Error ? err.message : String(err);
+  }
+}
+
+function selectVideoDevice(id: string): void {
+  selectedVideoDeviceId.value = id;
+  void window.api.config.update({ remote: { videoDeviceId: id } });
+}
+
+const KEEPALIVE_OPTIONS = [
+  { value: 0, label: "关闭" },
+  { value: 10000, label: "10 秒" },
+  { value: 20000, label: "20 秒" },
+  { value: 30000, label: "30 秒" },
+  { value: 60000, label: "60 秒" },
+];
+
+function selectKeepalive(ms: number): void {
+  keepaliveMs.value = ms;
+  void window.api.config.update({ remote: { keepaliveMs: ms } });
+}
+
+function stopPreview(): void {
+  videoStream?.getTracks().forEach((t) => t.stop());
+  videoStream = null;
+  if (videoEl.value) videoEl.value.srcObject = null;
+  previewing.value = false;
+  videoSettings.value = null;
+}
+
+async function startPreview(): Promise<void> {
+  if (videoBusy.value) return;
+  videoBusy.value = true;
+  videoError.value = null;
+  stopPreview();
+  const id = selectedVideoDeviceId.value;
+  const video: MediaTrackConstraints = {
+    width: { ideal: 1920 },
+    height: { ideal: 1080 },
+    frameRate: { ideal: 60 },
+  };
+  if (id) video.deviceId = { exact: id };
+  try {
+    videoStream = await navigator.mediaDevices.getUserMedia({ video });
+    const track = videoStream.getVideoTracks()[0];
+    if (!track) throw new Error("no video track");
+    videoSettings.value = track.getSettings();
+    if (videoEl.value) {
+      videoEl.value.srcObject = videoStream;
+      await videoEl.value.play().catch(() => {});
+    }
+    previewing.value = true;
+    // Labels may become visible only after a successful getUserMedia.
+    await refreshVideoDevices();
+  } catch (err) {
+    videoError.value = err instanceof Error ? err.message : String(err);
+    stopPreview();
+  } finally {
+    videoBusy.value = false;
+  }
+}
+
 onMounted(async () => {
   await load();
   offState = window.api.remote.onStateChanged(async (s) => {
+    const hadClient = status.value?.client != null;
     status.value = s;
     if (selectedUrl.value >= s.urls.length) selectedUrl.value = 0;
     await refreshQr();
+    // Session ended: release the downlink (and the capture card with it).
+    if (hadClient && s.client == null) videoStreamService?.stop();
   });
   clockTimer = window.setInterval(() => (nowTick.value = Date.now()), 1000);
+  try {
+    const cfg = await window.api.config.get();
+    selectedVideoDeviceId.value = cfg.remote.videoDeviceId ?? "";
+    keepaliveMs.value = cfg.remote.keepaliveMs;
+  } catch {
+    /* config unavailable: keep default */
+  }
+  await refreshVideoDevices();
+
+  videoStreamService = new VideoStreamService({
+    send: (payload) => void window.api.remote.sendSignal(payload),
+    getConfig: () => window.api.config.get(),
+    onStatus: (s, detail) => {
+      webrtcStatus.value = s;
+      webrtcDetail.value = detail ?? null;
+    },
+  });
+  offSignal = window.api.remote.onSignal(({ payload }) => {
+    void videoStreamService?.handleSignal(payload);
+  });
 });
 
 onUnmounted(() => {
   offState?.();
+  offSignal?.();
+  videoStreamService?.stop();
   if (clockTimer !== null) window.clearInterval(clockTimer);
+  stopPreview();
 });
 </script>
 
@@ -138,6 +289,23 @@ onUnmounted(() => {
       <p class="hint firewall">
         首次启动如无法连接，请允许 Windows 防火墙放行 Node.js（专用网络）。
       </p>
+      <div class="row keepalive-row">
+        <label class="field">
+          <span>防休眠保活（远程会话期间）</span>
+          <select
+            :value="keepaliveMs"
+            @change="selectKeepalive(Number(($event.target as HTMLSelectElement).value))"
+          >
+            <option v-for="o in KEEPALIVE_OPTIONS" :key="o.value" :value="o.value">
+              {{ o.label }}
+            </option>
+          </select>
+        </label>
+        <span class="dim">
+          实测底座休眠会断开 USB（无法远程唤醒），保活通过周期微量输入阻止
+          NS 自动休眠，仅 remote 源激活时运行。
+        </span>
+      </div>
     </section>
 
     <section v-if="status?.urls.length" class="card">
@@ -150,8 +318,8 @@ onUnmounted(() => {
         <div v-else class="qr placeholder" />
         <div class="url-side">
           <select v-model.number="selectedUrl" @change="refreshQr">
-            <option v-for="(u, i) in status?.urls" :key="u" :value="i">
-              {{ u.replace(/^http:\/\//, "").replace(/\?t=.+$/, "") }}
+            <option v-for="(e, i) in status?.urls" :key="e.url" :value="i">
+              {{ endpointLabel(e.address, e.kind) }}
             </option>
           </select>
           <button @click="copyUrl">
@@ -160,6 +328,30 @@ onUnmounted(() => {
         </div>
       </div>
     </section>
+
+    <details class="card help-card">
+      <summary>外出访问（Tailscale）—— 如何在家里之外操控</summary>
+      <div class="help-body">
+        <p class="hint">
+          家里的 WiFi 只能在家用。出门（4G）访问需要 PC 与手机都安装
+          <a href="https://tailscale.com/download" target="_blank" rel="noreferrer">Tailscale</a>
+          并登录<strong>同一账号</strong>，无需任何端口映射：
+        </p>
+        <ol class="hint help-steps">
+          <li>PC 与手机安装 Tailscale 并登录同一账号（PC 版随系统自启）</li>
+          <li>出门时手机打开 Tailscale 开关（4G/热点均可）</li>
+          <li>上方地址列表选标有「Tailscale · 外出」的 100.x 地址扫码</li>
+        </ol>
+        <p class="hint">
+          首次连接若超时：Windows 防火墙首次启动服务时会弹放行提示，请允许
+          「专用网络」；若错过，可在防火墙设置里放行本应用或 8787 端口。
+        </p>
+        <p class="hint">
+          安全：100.x 流量经 Tailscale（WireGuard）端到端加密。切勿把 8787
+          端口直接映射到公网；二维码/链接内含访问令牌，请勿外传。
+        </p>
+      </div>
+    </details>
 
     <section class="card">
       <h2>访问令牌</h2>
@@ -187,6 +379,57 @@ onUnmounted(() => {
         </p>
       </template>
       <p v-else class="hint">暂无手机连接。</p>
+    </section>
+
+    <section class="card">
+      <h2>视频下行（S15）</h2>
+      <p class="hint">
+        手机端「开启画面」后经 WebRTC 推送采集卡画面（sendonly，1080p60 /
+        6Mbps 起步）。设备选择持久化到 config.remote.videoDeviceId。
+      </p>
+      <div class="row">
+        <span class="dim">WebRTC：{{ webrtcStatusText }}</span>
+      </div>
+      <div class="row">
+        <select
+          :value="selectedVideoDeviceId"
+          @change="selectVideoDevice(($event.target as HTMLSelectElement).value)"
+        >
+          <option value="">默认摄像头</option>
+          <option
+            v-for="d in videoDevices"
+            :key="d.deviceId"
+            :value="d.deviceId"
+          >
+            {{ d.label }}
+          </option>
+        </select>
+        <button :disabled="videoBusy" @click="refreshVideoDevices">
+          刷新设备
+        </button>
+        <button
+          class="primary"
+          :disabled="videoBusy"
+          @click="previewing ? stopPreview() : startPreview()"
+        >
+          {{ previewing ? "停止预览" : "本地预览" }}
+        </button>
+        <span v-if="videoBusy" class="dim">取流中…</span>
+        <span v-if="videoError" class="notice error">{{ videoError }}</span>
+      </div>
+      <video
+        v-show="previewing"
+        ref="videoEl"
+        class="video-preview"
+        muted
+        autoplay
+        playsinline
+      />
+      <p v-if="videoSettings" class="hint mono">
+        实测：{{ videoSettings.width ?? "?" }}×{{ videoSettings.height ?? "?" }}
+        @ {{ videoSettings.frameRate !== undefined ? Math.round(videoSettings.frameRate) : "?" }} fps
+        · {{ selectedVideoDeviceId || "默认设备" }}
+      </p>
     </section>
 
     <section class="card">
@@ -241,6 +484,44 @@ onUnmounted(() => {
 
 .hint.firewall {
   margin-top: 12px;
+}
+
+.keepalive-row {
+  margin-top: 12px;
+  align-items: flex-start;
+}
+
+.keepalive-row .field {
+  min-width: 220px;
+}
+
+.keepalive-row .dim {
+  flex: 1;
+  min-width: 240px;
+}
+
+.help-card {
+  cursor: pointer;
+}
+
+.help-card summary {
+  font-size: 14px;
+  color: var(--text-dim);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.help-body {
+  margin-top: 10px;
+  cursor: default;
+}
+
+.help-steps {
+  padding-left: 18px;
+}
+
+.help-card a {
+  color: var(--accent);
 }
 
 .state-dot {
@@ -305,5 +586,19 @@ onUnmounted(() => {
 .dim {
   color: var(--text-dim);
   font-size: 12px;
+}
+
+.video-preview {
+  display: block;
+  margin-top: 12px;
+  max-width: 480px;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #000;
+}
+
+.hint.mono {
+  font-family: var(--font-mono, monospace);
 }
 </style>

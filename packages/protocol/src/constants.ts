@@ -12,6 +12,7 @@ export const EzDvCommand = {
   ChangeControllerColor: 0x89,
   SaveAmiibo: 0x90,
   ChangeAmiiboIndex: 0x91,
+  Wake: 0x92,
 } as const;
 
 export const Reply = {

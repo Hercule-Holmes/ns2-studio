@@ -86,6 +86,55 @@ class FailingLayer implements SerialPortLike {
   }
 }
 
+/** Handshakes like the mock but never answers Wake — for timeout tests. */
+class NoWakeLayer implements SerialPortLike {
+  readonly path: string = "NOWAKE";
+  isOpen = false;
+  written: Uint8Array[] = [];
+  protected listeners: Array<(d: Uint8Array) => void> = [];
+  onData(cb: (d: Uint8Array) => void): void {
+    this.listeners.push(cb);
+  }
+  onError(): void {}
+  onClose(): void {}
+  open(): Promise<void> {
+    this.isOpen = true;
+    return Promise.resolve();
+  }
+  close(): Promise<void> {
+    this.isOpen = false;
+    return Promise.resolve();
+  }
+  write(data: Uint8Array): Promise<void> {
+    this.written.push(Uint8Array.from(data));
+    const bytes = Array.from(data);
+    if (bytes[0] === 0xa5 && bytes[1] === 0x81) {
+      this.emit([0x80]);
+    } else if (bytes[0] === 0xa5 && bytes[1] === 0x85) {
+      this.emit(Array.from("mock", (c) => c.charCodeAt(0)));
+    }
+    return Promise.resolve();
+  }
+  protected emit(bytes: number[]): void {
+    const packet = Uint8Array.from(bytes);
+    for (const cb of [...this.listeners]) cb(packet);
+  }
+}
+
+/** Handshakes like the mock but answers Wake with Error (0x00). */
+class ErrorWakeLayer extends NoWakeLayer {
+  readonly path = "ERRWAKE";
+  override write(data: Uint8Array): Promise<void> {
+    const bytes = Array.from(data);
+    if (bytes[0] === 0xa5 && bytes[1] === 0x92) {
+      this.written.push(Uint8Array.from(data));
+      this.emit([0x00]);
+      return Promise.resolve();
+    }
+    return super.write(data);
+  }
+}
+
 describe("DeviceService (mock serial layer)", () => {
   it("connects: open -> hello [A5 81] -> version -> connected", async () => {
     const svc = makeService();
@@ -197,6 +246,57 @@ describe("DeviceService (mock serial layer)", () => {
     expect(result.ok).toBe(true);
     expect(service.getStatus().state).toBe("connected");
     expect(svc.layer.isOpen).toBe(true);
+  });
+
+  it("wake resolves ok when the device acks (mock replies to A5 92)", async () => {
+    const svc = makeService();
+    const service = svc.service;
+    await service.connect(MOCK_PORT_PATH);
+
+    const result = await service.wake(1000, 0);
+
+    expect(result.ok).toBe(true);
+    expect(result.code).toBe("ok");
+    expect(svc.layer.written.at(-1)).toEqual(Uint8Array.from([0xa5, 0x92]));
+  });
+
+  it("wake reports not-connected without a device", async () => {
+    const service = makeService().service;
+    const result = await service.wake();
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("not-connected");
+  });
+
+  it("wake times out on a silent device and retries once", async () => {
+    const layer = new NoWakeLayer();
+    const service = new DeviceService({
+      minIntervalMs: 0,
+      layerFactory: async () => layer,
+    });
+    const connectResult = await service.connect("NOWAKE", 115200);
+    expect(connectResult.ok).toBe(true);
+
+    const result = await service.wake(60, 1);
+
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("timeout");
+    expect(result.message).toBeTruthy();
+    // one initial attempt + one retry
+    expect(layer.written.filter((w) => w[1] === 0x92)).toHaveLength(2);
+  });
+
+  it("wake surfaces an error reply as code=error without retry", async () => {
+    const service = new DeviceService({
+      minIntervalMs: 0,
+      layerFactory: async () => new ErrorWakeLayer(),
+    });
+    const connectResult = await service.connect("ERRWAKE", 115200);
+    expect(connectResult.ok).toBe(true);
+
+    const result = await service.wake(1000, 1);
+
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("error");
   });
 });
 

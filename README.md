@@ -15,6 +15,7 @@ PC 端 Electron 应用：经 ESP32-S3 控制 Nintendo Switch 2，支持虚拟手
 | 系统架构 | [docs/architecture/01-SYSTEM-ARCHITECTURE.md](./docs/architecture/01-SYSTEM-ARCHITECTURE.md) |
 | 协议 | [docs/architecture/02-PROTOCOL.md](./docs/architecture/02-PROTOCOL.md) |
 | 远程操控 | [docs/architecture/08-REMOTE.md](./docs/architecture/08-REMOTE.md) |
+| 远程组网穿透原理 | [docs/architecture/09-REMOTE-NETWORKING.md](./docs/architecture/09-REMOTE-NETWORKING.md) |
 | 工单目录 | [docs/sessions/](./docs/sessions/) |
 
 ## 第一波建议开工
@@ -77,5 +78,31 @@ pnpm --filter @ns2-studio/desktop dev
 
 - 文档基线日期：2026-08-21
 - 代码：monorepo 已初始化；S1（protocol/pad-types）、S4（timeline-model）done，S2（desktop 壳 + 设备连接）done（mock 串口可演示，真机待 S0）
-- 远程操控：S13 远程桥 + S14 手机控制页代码与单测完成（mock 可全链路演示，真机/真手机联调待验）；S15 视频下行、S16 公网访问待开工
-- NS 唤醒调研完成（`docs/lab-notes/wake-research.md`）：固件 CMD_WAKE 0x92 待 EasyMCU 侧实现，PC 侧已预留
+- 远程操控：S13 远程桥 + S14 手机控制页 + S16 公网访问 done（4G 直连 26ms 实测，
+  见 `docs/architecture/09-REMOTE-NETWORKING.md`）；S15 视频下行 WebRTC 全链路可用
+  （码率自适应，拍屏精测待做）
+- 发布：S11 done——NSIS/Portable 安装包（`apps/desktop/release/`）、图标、
+  LICENSE 与第三方声明齐备；待干净机器装机验收
+- NS 唤醒已验证（`docs/lab-notes/wake-research.md`）：真机实测底座休眠即断开
+  USB（远程唤醒物理不可达）；PC/固件全链路已就绪，兜底 **B3 防休眠保活已实现**
+  （远程会话期间周期微量输入），彻底方案 B2 蓝牙手柄待排期
+
+## 使用概览
+
+1. **连接设备**：「设备」页选串口 → 连接（默认 115200，需先烧录固件，见 `docs/easymcu/04-编译与烧录.md`）
+2. **手动操控**：「手柄」页键盘/点击，或「设备」页调试下发
+3. **时间轴宏**：「时间轴」页编排按键轨道 → 编译 → 回放/录制烘焙
+4. **Amiibo**：「Amiibo」页导入 dump → 下发槽位；时间轴 Amiibo 轨到点切换
+5. **NS2 Pro 转发**：有线接入后「设备」页开始转发（forward 源）
+6. **手机远程**：「远程」页启动服务 → 扫码 → 接管控制 / 开启画面（出门见
+   「外出访问」帮助卡与 `docs/architecture/09-REMOTE-NETWORKING.md`）
+
+## 许可证与第三方声明
+
+- 本仓库代码以 [MIT](./LICENSE) 许可发布。
+- **EasyCon（伊机控）**：本项目的 PC↔MCU 串口协议与其兼容（协议规范见
+  `docs/architecture/02-PROTOCOL.md`），代码为独立实现，未复制/链接其
+  .NET 源码或资源；固件基于 EasyMCU（GPL），仅以"编译产物"形式刷写在
+  独立设备上使用，未与本应用静态链接——两者通过串口通信，属独立程序。
+- 主要运行时依赖：Electron、Vue、serialport、node-hid、ws、qrcode
+  （均为 MIT 类许可），构建期清单见 `pnpm-lock.yaml`。

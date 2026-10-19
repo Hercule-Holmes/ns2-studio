@@ -96,6 +96,26 @@ async function sendDebugReport(): Promise<void> {
   await window.api.device.sendReport(report);
 }
 
+const wakeBusy = ref(false);
+const wakeResult = ref<string | null>(null);
+const wakeOk = ref(false);
+
+async function wakeHost(): Promise<void> {
+  if (wakeBusy.value) return;
+  wakeBusy.value = true;
+  wakeResult.value = null;
+  try {
+    const r = await window.api.device.wake();
+    wakeOk.value = r.ok;
+    wakeResult.value = r.ok ? (r.message ?? "已唤醒") : (r.message ?? "唤醒失败");
+  } catch (err) {
+    wakeOk.value = false;
+    wakeResult.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    wakeBusy.value = false;
+  }
+}
+
 async function refreshCapture(): Promise<void> {
   captureDevices.value = await window.api.capture.list();
   captureStatus.value = await window.api.capture.getStatus();
@@ -187,11 +207,22 @@ onUnmounted(() => {
       <div class="row">
         <h2>指令</h2>
         <button :disabled="!isConnected" @click="sendNeutral">发送中立</button>
+        <button
+          class="primary"
+          :disabled="!isConnected || wakeBusy"
+          :title="'主机休眠时经 USB 远程唤醒（CMD_WAKE 0x92，需固件支持）'"
+          @click="wakeHost"
+        >
+          {{ wakeBusy ? "唤醒中…" : "唤醒主机" }}
+        </button>
         <label>
           <input v-model="showDebug" type="checkbox" />
           调试
         </label>
       </div>
+      <p v-if="wakeResult" class="hint" :class="{ 'wake-error': !wakeOk }">
+        {{ wakeResult }}
+      </p>
       <div v-if="showDebug" class="debug-row">
         <p class="hint">
           调试通道：通过主进程写队列下发一帧报告（A 键按下）。正式功能请走
@@ -356,6 +387,10 @@ onUnmounted(() => {
 .capture-hint-warn {
   color: var(--warn);
   margin-top: 8px;
+}
+
+.wake-error {
+  color: var(--error);
 }
 
 .capture-devices {

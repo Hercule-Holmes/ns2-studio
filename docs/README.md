@@ -18,6 +18,8 @@
 | [architecture/05-REPO-LAYOUT.md](./architecture/05-REPO-LAYOUT.md) | 仓库目录与包约定 |
 | [architecture/06-DEFINITION-OF-DONE.md](./architecture/06-DEFINITION-OF-DONE.md) | 全局完成标准与验收 |
 | [architecture/07-RISKS.md](./architecture/07-RISKS.md) | 风险、阻断项、升级路径 |
+| [architecture/08-REMOTE.md](./architecture/08-REMOTE.md) | 远程操控（网关/信令/安全模型） |
+| [architecture/09-REMOTE-NETWORKING.md](./architecture/09-REMOTE-NETWORKING.md) | **远程组网与穿透原理**：NAT/打洞/DERP，4G 直连 26ms 实战 |
 | [sessions/](./sessions/) | **各 Session 可独立领取的详细工单** |
 
 ## 如何开一个新 Session

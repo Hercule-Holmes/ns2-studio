@@ -8,5 +8,6 @@ export const DeviceChannels = {
   getStatus: "device:getStatus",
   sendNeutral: "device:sendNeutral",
   sendReport: "device:sendReport",
+  wake: "device:wake",
   stateChanged: "device:stateChanged",
 } as const;

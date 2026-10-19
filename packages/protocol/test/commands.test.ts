@@ -6,6 +6,7 @@ import {
   buildChangeAmiiboIndexFrame,
   buildHelloFrame,
   buildSaveAmiiboMetaFrame,
+  buildWakeFrame,
   commands,
 } from "../src/index";
 
@@ -38,6 +39,14 @@ describe("buildHelloFrame", () => {
   it("is [Ready, Hello]", () => {
     expect(buildHelloFrame()).toEqual(Uint8Array.from([0xa5, 0x81]));
     expect(commands.hello()).toEqual(Uint8Array.from([0xa5, 0x81]));
+  });
+});
+
+describe("buildWakeFrame", () => {
+  it("is [Ready, Wake=0x92]", () => {
+    expect(buildWakeFrame()).toEqual(Uint8Array.from([0xa5, 0x92]));
+    expect(commands.wake()).toEqual(Uint8Array.from([0xa5, 0x92]));
+    expect(EzDvCommand.Wake).toBe(0x92);
   });
 });
 

@@ -85,6 +85,11 @@ export class MockSerialLayer implements SerialPortLike {
       this.emitData(Uint8Array.from(Array.from("mock", (c) => c.charCodeAt(0))));
       return;
     }
+    if (bytes.length >= 2 && bytes[0] === 0xa5 && bytes[1] === 0x92) {
+      // Wake (CMD_WAKE 0x92) -> Ack
+      this.emitData(Uint8Array.from([Reply.Ack]));
+      return;
+    }
     if (bytes.length >= 3 && bytes[0] === 0xa5 && bytes[2] === 0x91) {
       // ChangeAmiiboIndex -> Ack
       this.emitData(Uint8Array.from([Reply.Ack]));

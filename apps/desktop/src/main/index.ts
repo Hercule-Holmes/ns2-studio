@@ -1,5 +1,12 @@
 import { join } from "node:path";
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, session } from "electron";
+
+// S15: LAN WebRTC — mDNS-obfuscated ICE candidates (default on) can be
+// unresolvable for phones on routers with client isolation; use real IPs.
+app.commandLine.appendSwitch(
+  "disable-features",
+  "WebRtcHideLocalIpsWithMdns",
+);
 import { DeviceService } from "./device/device-service";
 import { createSerialLayer } from "./device/serial-factory";
 import { SettingsStore } from "./config/store";
@@ -13,6 +20,7 @@ import { Recorder } from "./recorder/recorder";
 import { TimelineEngine } from "./timeline/engine";
 import { CaptureService } from "./capture/capture-service";
 import { RemoteGateway } from "./remote/gateway";
+import { KeepaliveService } from "./remote/keepalive";
 import { registerIpc } from "./ipc/register";
 
 const device = new DeviceService({
@@ -80,7 +88,24 @@ const remote = new RemoteGateway({
   log: (line) => console.log(line),
 });
 
+// B3 (wake-research): keep the NS awake while a remote session is active.
+const keepalive = new KeepaliveService(hub, device, config);
+
 let mainWindow: BrowserWindow | null = null;
+
+// S15: capture-card video needs camera/mic access inside the renderer. The
+// app has no untrusted content (contextIsolation + no remote navigation), so
+// auto-grant `media` instead of prompting. Labels in enumerateDevices() also
+// require the sync check handler to return true.
+function setupMediaPermissions(): void {
+  const grant = ["media"] as const;
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback((grant as readonly string[]).includes(permission));
+  });
+  session.defaultSession.setPermissionCheckHandler(
+    (_wc, permission) => (grant as readonly string[]).includes(permission),
+  );
+}
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -113,8 +138,10 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  setupMediaPermissions();
   registerIpc(device, settings, config, logger, hub, amiibo, recorder, timeline, capture, remote, () => mainWindow);
   createWindow();
+  keepalive.start();
   if (config.get().remote.enabled) {
     void remote.start();
   }
@@ -129,6 +156,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
+  keepalive.stop();
   void remote.dispose();
   timeline.dispose();
   capture.dispose();

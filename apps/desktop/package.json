@@ -10,9 +10,10 @@
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit --composite false -p tsconfig.node.json && vue-tsc --noEmit --composite false -p tsconfig.web.json",
     "test": "vitest run",
-    "dist": "electron-vite build && electron-builder --win",
-    "pack": "electron-builder --dir"
+    "dist": "pnpm --filter @ns2-studio/remote-client run build && electron-vite build && electron-builder --win",
+    "pack": "pnpm --filter @ns2-studio/remote-client run build && electron-vite build && electron-builder --dir"
   },
+  "author": "NS2 Studio contributors",
   "dependencies": {
     "@ns2-studio/pad-types": "workspace:*",
     "@ns2-studio/protocol": "workspace:*",
@@ -36,5 +37,41 @@
     "vite": "^7.3.6",
     "vitest": "^3.2.7",
     "vue-tsc": "^3.3.11"
+  },
+  "build": {
+    "appId": "com.ns2studio.desktop",
+    "productName": "NS2 Studio",
+    "npmRebuild": false,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "**/*.node"
+    ],
+    "win": {
+      "icon": "resources/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "NS2Studio-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "NS2Studio-Portable-${version}.${ext}"
+    }
   }
 }

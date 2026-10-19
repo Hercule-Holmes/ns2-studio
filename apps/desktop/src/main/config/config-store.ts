@@ -15,6 +15,8 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     token: "",
     heartbeatMs: 250,
     watchdogMs: 1000,
+    videoDeviceId: "",
+    keepaliveMs: 20000,
   },
 };
 

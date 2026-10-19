@@ -9,6 +9,7 @@ import type {
   DeviceStatus,
   HubState,
   RemoteClientInfo,
+  RemoteEndpointInfo,
   RemoteServerState,
   RemoteStatus,
 } from "../../shared/ipc";
@@ -18,7 +19,8 @@ import type { ConfigStore } from "../config/config-store";
 
 const WS_PATH = "/ws";
 const MAX_AUTH_FAILURES = 3;
-const MAX_PAYLOAD_BYTES = 4096;
+/** SDP offers/answers run 2-8KB; 64KB leaves headroom without inviting abuse. */
+const MAX_PAYLOAD_BYTES = 65536;
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -46,7 +48,7 @@ type ClientMessage =
   | { v?: number; type: "source"; source?: unknown }
   | { v?: number; type: "pad"; report?: unknown }
   | { v?: number; type: "release" }
-  | { v?: number; type: "ping"; t?: unknown }
+  | { v?: number; type: "ping"; t?: unknown; rttMs?: unknown }
   | { v?: number; type: "wake" }
   | { v?: number; type: "signal"; payload?: unknown };
 
@@ -70,6 +72,18 @@ function isValidReport(raw: unknown): raw is PadReport {
     int(r.ly, 0, 255) &&
     int(r.rx, 0, 255) &&
     int(r.ry, 0, 255)
+  );
+}
+
+/** Tailscale assigns CGNAT addresses from 100.64.0.0/10 (S16). */
+export function isTailscaleAddress(ip: string): boolean {
+  const o = ip.split(".").map(Number);
+  return (
+    o.length === 4 &&
+    o[0] === 100 &&
+    o[1]! >= 64 &&
+    o[1]! <= 127 &&
+    o.every((n) => n >= 0 && n <= 255)
   );
 }
 
@@ -197,7 +211,7 @@ export class RemoteGateway {
       token: remote.token,
       client,
       error: this.error,
-      urls: this.reachableUrls(this.boundPort ?? remote.port, remote.token),
+      urls: this.reachableEndpoints(this.boundPort ?? remote.port, remote.token),
     };
   }
 
@@ -214,6 +228,11 @@ export class RemoteGateway {
 
   /** Renderer → phone (S15). Drops silently when no live session. */
   sendSignalToClient(payload: unknown): void {
+    const kind =
+      typeof payload === "object" && payload !== null && "kind" in payload
+        ? String((payload as { kind: unknown }).kind)
+        : "unknown";
+    this.deps.log?.(`[remote] signal R→C ${kind}`);
     this.session?.socket.send(JSON.stringify({ v: 1, type: "signal", payload }));
   }
 
@@ -264,8 +283,8 @@ export class RemoteGateway {
     res.end(JSON.stringify(body));
   }
 
-  private reachableUrls(port: number, token: string): string[] {
-    const urls: string[] = [];
+  private reachableEndpoints(port: number, token: string): RemoteEndpointInfo[] {
+    const out: RemoteEndpointInfo[] = [];
     const seen = new Set<string>();
     for (const list of Object.values(networkInterfaces())) {
       for (const ni of list ?? []) {
@@ -273,10 +292,16 @@ export class RemoteGateway {
         const key = ni.address;
         if (seen.has(key)) continue;
         seen.add(key);
-        urls.push(`http://${key}:${port}/?t=${token}`);
+        out.push({
+          url: `http://${key}:${port}/?t=${token}`,
+          address: key,
+          kind: isTailscaleAddress(key) ? "tailscale" : "lan",
+        });
       }
     }
-    return urls;
+    // LAN first (primary at home), tailnet last (away scenario).
+    out.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === "lan" ? -1 : 1));
+    return out;
   }
 
   // ------------------------------------------------------------------
@@ -329,25 +354,37 @@ export class RemoteGateway {
       case "release":
         void this.deps.hub.forceNeutral();
         break;
-      case "ping":
+      case "ping": {
+        // Client-reported RTT feeds the adaptive watchdog: a session on a
+        // lossy path (DERP relay / 4G) legitimately stalls longer than the
+        // base watchdog without being dead.
+        if (
+          typeof msg.rttMs === "number" &&
+          Number.isFinite(msg.rttMs) &&
+          msg.rttMs >= 0 &&
+          msg.rttMs < 60_000 &&
+          this.session
+        ) {
+          this.session.rttMs = msg.rttMs;
+        }
         socket.send(JSON.stringify({ v: 1, type: "pong", t: msg.t ?? null }));
         break;
+      }
       case "wake":
-        // D3 (lab-notes/wake-research.md): firmware CMD_WAKE 0x92 not yet
-        // implemented; respond explicitly instead of silently dropping.
-        socket.send(
-          JSON.stringify({
-            v: 1,
-            type: "wakeResult",
-            ok: false,
-            code: "firmware-unsupported",
-            message: "固件未实现唤醒命令（CMD_WAKE 0x92）",
-          }),
-        );
+        // CMD_WAKE 0x92 via the serial device (02-PROTOCOL.md §3.4,
+        // lab-notes/wake-research.md). A not-connected/unsupported device
+        // still produces an explicit wakeResult instead of silence.
+        void this.handleWake(socket);
         break;
-      case "signal":
+      case "signal": {
+        const kind =
+          typeof msg.payload === "object" && msg.payload !== null && "kind" in msg.payload
+            ? String((msg.payload as { kind: unknown }).kind)
+            : "unknown";
+        this.deps.log?.(`[remote] signal C→R ${kind}`);
         for (const cb of this.signalListeners) cb({ payload: msg.payload });
         break;
+      }
       default:
         this.sendError(socket, "bad-message", `unknown type`);
     }
@@ -404,6 +441,15 @@ export class RemoteGateway {
     }
     // Gated by InputHub: dropped unless `remote` is the active source.
     await this.deps.hub.applyFrom("remote", raw);
+  }
+
+  private async handleWake(socket: WebSocket): Promise<void> {
+    const result = await this.deps.device.wake();
+    try {
+      socket.send(JSON.stringify({ v: 1, type: "wakeResult", ...result }));
+    } catch {
+      /* socket already gone */
+    }
   }
 
   private handleSocketClosed(socket: WebSocket): void {
@@ -463,8 +509,13 @@ export class RemoteGateway {
     const { watchdogMs } = this.deps.config.get().remote;
     this.watchdog = setInterval(() => {
       if (!this.session) return;
-      if (Date.now() - this.session.lastSeen <= watchdogMs) return;
-      this.deps.log?.("[remote] watchdog timeout — releasing session");
+      // Adaptive: RTT-aware ceiling (6×RTT) so high-latency sessions
+      // (DERP relay, 4G) survive transient stalls that exceed the base.
+      const effective = Math.max(watchdogMs, (this.session.rttMs ?? 0) * 6);
+      if (Date.now() - this.session.lastSeen <= effective) return;
+      this.deps.log?.(
+        `[remote] watchdog timeout — releasing session (rtt=${this.session.rttMs ?? "?"}ms)`,
+      );
       void this.endSession("watchdog");
     }, Math.max(100, Math.floor(watchdogMs / 2)));
   }

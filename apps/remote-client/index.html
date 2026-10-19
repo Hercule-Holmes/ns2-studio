@@ -17,7 +17,10 @@
         <span class="spacer"></span>
         <span class="dim" id="st-source"></span>
         <span class="dim" id="st-rtt"></span>
+        <button class="mini-btn" id="btn-wake" title="唤醒 NS">唤醒</button>
+        <button class="mini-btn primary" id="btn-take">接管控制</button>
       </div>
+      <button class="fs-btn" id="btn-fs" title="全屏（锁定横屏，隐藏状态栏）">⛶</button>
 
       <!-- token gate -->
       <div class="gate" id="gate">
@@ -37,52 +40,65 @@
         <div class="hint" id="gate-error" style="color: var(--err)"></div>
       </div>
 
-      <!-- main stage -->
+      <!-- main stage: full-bleed video + anchored control groups (S17 v2) -->
       <div class="stage" id="stage" style="display: none">
-        <div class="video-slot" id="video-slot">视频画面将在后续版本提供（S15）</div>
-
-        <div class="pad-area">
-          <div class="col">
-            <div class="shoulder-row">
-              <button class="ctrl" data-btn="L">L</button>
-              <button class="ctrl" data-btn="ZL">ZL</button>
-              <button class="ctrl" data-btn="MINUS">-</button>
-              <button class="ctrl" data-btn="LCLICK">LS</button>
-            </div>
-            <div class="dpad">
-              <button class="ctrl up" data-hat="0">▲</button>
-              <button class="ctrl left" data-hat="6">◀</button>
-              <button class="ctrl right" data-hat="2">▶</button>
-              <button class="ctrl down" data-hat="4">▼</button>
-            </div>
-            <div class="stick" id="stick">
-              <div class="knob" id="stick-knob"></div>
-            </div>
-          </div>
-
-          <div class="col">
-            <div class="shoulder-row">
-              <button class="ctrl" data-btn="R">R</button>
-              <button class="ctrl" data-btn="ZR">ZR</button>
-              <button class="ctrl" data-btn="PLUS">+</button>
-              <button class="ctrl" data-btn="RCLICK">RS</button>
-            </div>
-            <div class="face-grid">
-              <button class="face x" data-btn="X">X</button>
-              <button class="face a" data-btn="A">A</button>
-              <button class="face b" data-btn="B">B</button>
-              <button class="face y" data-btn="Y">Y</button>
-            </div>
-            <div class="sys-row">
-              <button class="ctrl" data-btn="HOME">HOME</button>
-              <button class="ctrl" data-btn="CAPTURE">CAP</button>
-            </div>
+        <div class="video-slot" id="video-slot">
+          <video id="video" playsinline autoplay muted></video>
+          <div class="video-overlay" id="video-overlay">
+            <span class="hint" id="video-state">无信号</span>
+            <button class="btn primary" id="btn-video">开启画面</button>
           </div>
         </div>
 
-        <div class="footer">
-          <button class="btn" id="btn-wake">唤醒 NS</button>
-          <button class="btn primary" id="btn-take">接管控制</button>
+        <div class="pad-area">
+          <div class="cluster cluster-left">
+            <div class="row">
+              <button class="ctrl sm" data-btn="MINUS">-</button>
+              <button class="ctrl big" data-btn="L">L</button>
+              <button class="ctrl big" data-btn="ZL">ZL</button>
+            </div>
+            <div class="row">
+              <div class="stick" id="stick">
+                <div class="knob" id="stick-knob"></div>
+              </div>
+              <button class="ctrl sm side" data-btn="LCLICK">LS</button>
+            </div>
+            <div class="row">
+              <div class="dpad">
+                <button class="ctrl up" data-hat="0">▲</button>
+                <button class="ctrl left" data-hat="6">◀</button>
+                <button class="ctrl right" data-hat="2">▶</button>
+                <button class="ctrl down" data-hat="4">▼</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="cluster cluster-right">
+            <div class="row">
+              <button class="ctrl big" data-btn="ZR">ZR</button>
+              <button class="ctrl big" data-btn="R">R</button>
+              <button class="ctrl sm" data-btn="PLUS">+</button>
+            </div>
+            <div class="row">
+              <div class="face-grid">
+                <button class="face x" data-btn="X">X</button>
+                <button class="face a" data-btn="A">A</button>
+                <button class="face b" data-btn="B">B</button>
+                <button class="face y" data-btn="Y">Y</button>
+              </div>
+            </div>
+            <div class="row">
+              <div class="stick" id="stick-r">
+                <div class="knob" id="stick-r-knob"></div>
+              </div>
+              <button class="ctrl sm side" data-btn="RCLICK">RS</button>
+            </div>
+          </div>
+
+          <div class="group sys-center">
+            <button class="ctrl sm" data-btn="HOME">HOME</button>
+            <button class="ctrl sm" data-btn="CAPTURE">CAP</button>
+          </div>
         </div>
       </div>
     </div>

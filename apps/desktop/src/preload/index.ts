@@ -40,6 +40,7 @@ import type {
   TimelineLoadResult,
   TimelinePlayResult,
   TimelinePlaybackState,
+  WakeResult,
 } from "../shared/ipc";
 
 function subscribe<T>(channel: string, cb: (payload: T) => void): () => void {
@@ -58,6 +59,8 @@ const api: RendererApi = {
     sendNeutral: () => ipcRenderer.invoke(DeviceChannels.sendNeutral),
     sendReport: (report: PadReport) =>
       ipcRenderer.invoke(DeviceChannels.sendReport, report),
+    wake: (): Promise<WakeResult> =>
+      ipcRenderer.invoke(DeviceChannels.wake),
     subscribeLog: () => ipcRenderer.invoke(LogChannels.subscribe),
     onStateChanged: (cb: (status: DeviceStatus) => void) =>
       subscribe<DeviceStatus>(DeviceChannels.stateChanged, cb),

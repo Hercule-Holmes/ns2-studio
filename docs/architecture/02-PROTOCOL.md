@@ -103,6 +103,7 @@ packet[last] |= 0x80
 | ChangeControllerColor | 0x89 | | |
 | SaveAmiibo | 0x90 | | 见 §4 |
 | ChangeAmiiboIndex | 0x91 | | 参数 index |
+| Wake | 0x92 | | 有线唤醒休眠主机；见 §3.4 |
 
 ### 3.1 Reply
 
@@ -128,6 +129,31 @@ RX: Ack(0xFF) within ~200ms
 ```
 
 `index` 建议 0–15（EasyCon 侧 `& 0x0F`）。
+
+### 3.4 Wake（USB 有线远程唤醒）
+
+> 调研与固件规格：`docs/lab-notes/wake-research.md`（决策 D3：命令号 0x92）。
+
+```text
+TX: Ready, Wake(0x92)
+RX: Ack(0xFF)   主机未休眠，或恢复信号已发出且 NS 已亮屏（HOME 短按触发）
+RX: Error(0x00) [+ 原因码 1 字节]
+    0x01 设备未挂载（NS 侧原生 USB 未枚举；v3 起该状态转走重插拔路径）
+    0x02 主机未启用该设备远程唤醒（remote_wakeup_en=0）
+    0x03 恢复失败/超时（tud_remote_wakeup 后总线未恢复）
+    0x04 模拟重插拔后主机未响应连接事件（休眠中端口无监测）
+    旧固件（未实现 Wake）只回 Error 无原因码——PC 侧统一提示
+```
+
+- 固件行为（v3，2026-10-19 实测定型）：
+  - 已挂载且未挂起 → Ack（本就醒着）
+  - 已挂载且挂起 → `tud_remote_wakeup()` → 等恢复 → HOME 短按 → Ack
+  - **未挂载（NS 休眠即断开，实测 suspend_cb 从不触发）** → 先回
+    `Busy(0xFE)` 占位 → 断开 D+ 上拉 120ms 再接上（模拟重新插拔）→
+    等重新挂载（3s 超时）→ 枚举稳定后 HOME 短按 → Ack/Error 0x04
+- PC 侧：等待窗口 6s、超时重试 1 次；Ack 无法区分「本来就醒着」与
+  「唤醒成功」，语义上均视为 `ok`。原因码 0x02 即 wake-research §6
+  判定点（真值记录）。
 
 ## 4. SaveAmiibo 分包
 

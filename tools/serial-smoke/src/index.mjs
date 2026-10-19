@@ -1,9 +1,12 @@
 #!/usr/bin/env node
-import { listPorts, openPort, helloHandshake, sleep } from './io.mjs';
+import { listPorts, openPort, helloHandshake, wakeHandshake, debugQuery, sleep } from './io.mjs';
 import {
   NEUTRAL_REPORT,
   A_PRESS_REPORT,
   STICK_UP_REPORT,
+  WAKE_COMMAND,
+  REPLY_ACK,
+  REPLY_ERROR,
   bytesToHex,
 } from './packets.mjs';
 
@@ -15,6 +18,8 @@ const USAGE = `NS2 Studio 串口冒烟工具 (S0)
   ns2-smoke neutral <port>
   ns2-smoke press-a <port>
   ns2-smoke stick-up <port>
+  ns2-smoke wake <port>
+  ns2-smoke debug <port>
   ns2-smoke report <port> <hex...>
 
 子命令:
@@ -24,12 +29,17 @@ const USAGE = `NS2 Studio 串口冒烟工具 (S0)
   neutral <port>          发送中立 report
   press-a <port>          A 按下 → 100ms → 释放回中立
   stick-up <port>         左摇杆上 (LY=0) → 500ms → 回中立
+  wake <port>             发 [A5 92] 唤醒休眠主机（CMD_WAKE 0x92，等待约 1s）：
+                          RX FF=成功（已唤醒/未休眠）；RX 00 0X=失败+原因码
+  debug <port>            读 CMD_DEBUG（含 USB 状态：挂载/挂起/唤醒使能位、
+                          suspend/umount 回调计数）
   report <port> <hex...>  发送任意 7bit 报文字节（如 00 00 01 08 04 02 01 80）
 
 示例:
   ns2-smoke list
   ns2-smoke hello COM3
-  ns2-smoke press-a COM3`;
+  ns2-smoke press-a COM3
+  ns2-smoke wake COM3`;
 
 function normalizePortPath(path) {
   const m = /^COM(\d+)$/i.exec(path);
@@ -101,6 +111,55 @@ async function cmdHello(path) {
   }
 }
 
+async function cmdWake(path) {
+  const { port, baudRate } = await openPort(normalizePortPath(path));
+  try {
+    console.log(`已打开 ${path} @ ${baudRate}`);
+    console.log(`TX: ${bytesToHex(WAKE_COMMAND)}  （等待固件执行 USB 恢复 + HOME 短按…）`);
+    const result = await wakeHandshake(port);
+    console.log(`RX: ${bytesToHex(result.rx)}`);
+    if (result.rx.includes(REPLY_ACK)) {
+      console.log('结果：0xFF — 主机已唤醒（或本就未休眠）✅');
+    } else if (result.rx.includes(REPLY_ERROR)) {
+      const idx = result.rx.indexOf(REPLY_ERROR);
+      const reason = result.rx[idx + 1];
+      const reasonText =
+        reason === 0x01
+          ? '设备未挂载（NS 侧原生 USB 未连接/未枚举）'
+          : reason === 0x02
+            ? '主机未启用有线远程唤醒（remote_wakeup_en=0，需兜底策略 B1 换 VID/PID）'
+            : reason === 0x03
+              ? 'USB 恢复失败/超时（tud_remote_wakeup 后总线未恢复）'
+              : reason === 0x04
+                ? '模拟重插拔后主机未响应连接事件（休眠中端口无监测）'
+                : '未知原因';
+      console.log(`结果：0x00 — 唤醒失败${reason !== undefined ? `（原因码 0x0${reason}：${reasonText}）` : '（固件过旧，无原因码）'}`);
+    } else {
+      console.log('结果：超时无响应');
+    }
+  } finally {
+    port.close();
+  }
+}
+
+async function cmdDebug(path) {
+  const { port, baudRate } = await openPort(normalizePortPath(path));
+  try {
+    console.log(`已打开 ${path} @ ${baudRate}`);
+    const result = await debugQuery(port);
+    const tail = result.rx.slice(-17);
+    const flags = tail[14] ?? 0;
+    const susp = tail[15] ?? 0;
+    const resm = tail[16] ?? 0;
+    console.log(`RX: ${bytesToHex(tail)}`);
+    console.log(
+      `USB 状态: mounted=${flags & 0x01 ? 1 : 0} suspended=${flags & 0x02 ? 1 : 0} wakeup_en=${flags & 0x04 ? 1 : 0} | suspend_cb=${susp} resume_cb=${resm}`,
+    );
+  } finally {
+    port.close();
+  }
+}
+
 function needPort(rest, command) {
   const port = rest[0];
   if (!port) throw new Error(`缺少串口参数。用法: ns2-smoke ${command} <port>`);
@@ -120,6 +179,12 @@ async function main() {
         break;
       case 'hello':
         await cmdHello(needPort(rest, cmd));
+        break;
+      case 'wake':
+        await cmdWake(needPort(rest, cmd));
+        break;
+      case 'debug':
+        await cmdDebug(needPort(rest, cmd));
         break;
       case 'neutral':
         await sendOnce(needPort(rest, cmd), NEUTRAL_REPORT);

@@ -1,17 +1,24 @@
 import { SwitchHat, STICK_CENTER } from "@ns2-studio/pad-types";
 import type { PadInputState } from "./state";
 
+export interface StickBinding {
+  el: HTMLElement;
+  knob: HTMLElement;
+  /** x/y in raw 0-255 protocol units (128 = center). */
+  set: (x: number, y: number) => void;
+}
+
 /**
- * Wires the static gamepad DOM to a PadInputState: press/release for every
- * `[data-btn]`, hat for `[data-hat]`, and an absolute-position virtual stick.
- * All handlers use Pointer Events so multi-touch works per-finger.
+ * Wires the gamepad DOM to a PadInputState: press/release for every
+ * `[data-btn]`, hat for `[data-hat]`, and one absolute-position virtual
+ * stick per `StickBinding` (left + right, S17). All handlers use Pointer
+ * Events so multi-touch works per-finger.
  */
 export function wireGamepad(
   root: HTMLElement,
-  stick: HTMLElement,
-  knob: HTMLElement,
   state: PadInputState,
   onInput: () => void,
+  sticks: StickBinding[],
 ): void {
   // ---- face / shoulder / system buttons ----
   for (const el of root.querySelectorAll<HTMLElement>("[data-btn]")) {
@@ -79,7 +86,17 @@ export function wireGamepad(
     el.addEventListener("contextmenu", (e) => e.preventDefault());
   }
 
-  // ---- virtual stick ----
+  // ---- virtual sticks (left + right, S17) ----
+  for (const binding of sticks) {
+    wireStick(binding, onInput);
+  }
+}
+
+function wireStick(
+  binding: StickBinding,
+  onInput: () => void,
+): void {
+  const { el: stick, knob, set } = binding;
   const stickPointer = { id: -1 };
   const setKnob = (dx: number, dy: number) => {
     knob.style.transform = `translate(${dx}px, ${dy}px)`;
@@ -94,9 +111,6 @@ export function wireGamepad(
       stick.classList.add("active");
     }
     if (ev.pointerId !== stickPointer.id) return;
-    if (!fromDown) {
-      // move
-    }
     let dx = ev.clientX - (rect.left + rect.width / 2);
     let dy = ev.clientY - (rect.top + rect.height / 2);
     const len = Math.hypot(dx, dy);
@@ -105,7 +119,7 @@ export function wireGamepad(
       dy = (dy / len) * radius;
     }
     setKnob(dx, dy);
-    state.setLeftStick(STICK_CENTER + (dx / radius) * 127, STICK_CENTER + (dy / radius) * 127);
+    set(STICK_CENTER + (dx / radius) * 127, STICK_CENTER + (dy / radius) * 127);
     onInput();
   };
   stick.addEventListener("pointerdown", (ev) => handleStick(ev, true));
@@ -117,7 +131,7 @@ export function wireGamepad(
     stickPointer.id = -1;
     stick.classList.remove("active");
     setKnob(0, 0);
-    state.setLeftStick(STICK_CENTER, STICK_CENTER);
+    set(STICK_CENTER, STICK_CENTER);
     onInput();
   };
   stick.addEventListener("pointerup", stickUp);
@@ -127,7 +141,7 @@ export function wireGamepad(
       stickPointer.id = -1;
       stick.classList.remove("active");
       setKnob(0, 0);
-      state.setLeftStick(STICK_CENTER, STICK_CENTER);
+      set(STICK_CENTER, STICK_CENTER);
       onInput();
     }
   });

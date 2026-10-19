@@ -63,6 +63,13 @@ export interface AppConfig {
     token: string;
     heartbeatMs: number;
     watchdogMs: number;
+    /** Video capture device for remote video downlink (S15); "" = default. */
+    videoDeviceId: string;
+    /**
+     * Keepalive interval (ms) while a remote session is active: periodic
+     * micro-input prevents NS auto-sleep (wake-research B3). 0 = off.
+     */
+    keepaliveMs: number;
   };
 }
 
@@ -97,6 +104,13 @@ export interface AppInfoApi {
   reportError(detail: string): Promise<void>;
 }
 
+/** Result of the CMD_WAKE 0x92 wake attempt (02-PROTOCOL.md §3.4). */
+export interface WakeResult {
+  ok: boolean;
+  code: "ok" | "error" | "timeout" | "not-connected";
+  message?: string;
+}
+
 export interface DeviceApi {
   listPorts(): Promise<string[]>;
   connect(path: string, baud?: number): Promise<ConnectResult>;
@@ -105,6 +119,8 @@ export interface DeviceApi {
   sendNeutral(): Promise<void>;
   /** Debug-only: push a raw report through the main write queue. */
   sendReport(report: PadReport): Promise<void>;
+  /** Ask the MCU to wake a sleeping Switch (USB remote wakeup). */
+  wake(): Promise<WakeResult>;
   subscribeLog(): Promise<LogLine[]>;
   onStateChanged(cb: (status: DeviceStatus) => void): () => void;
   onLog(cb: (line: LogLine) => void): () => void;
@@ -372,8 +388,17 @@ export interface RemoteClientInfo {
   /** remote address (ip:port) */
   peer: string;
   connectedAt: number;
-  /** last observed round-trip ms (from WS ping/pong) */
   rttMs?: number;
+}
+
+/** One reachable access URL of the gateway (S16). */
+export interface RemoteEndpointInfo {
+  /** Full URL including the access token — treat as secret. */
+  url: string;
+  /** Interface address without port. */
+  address: string;
+  /** lan = home network; tailscale = 100.64/10 CGNAT (away-from-home). */
+  kind: "lan" | "tailscale";
 }
 
 export interface RemoteStatus {
@@ -385,11 +410,10 @@ export interface RemoteStatus {
   client: RemoteClientInfo | null;
   error?: string;
   /**
-   * Reachable http base URLs (LAN + tailnet etc.), e.g.
-   * `http://192.168.1.10:8787/?t=<token>` — computed in main via
-   * os.networkInterfaces().
+   * Reachable endpoints (LAN + Tailscale etc.), computed in main via
+   * os.networkInterfaces(); LAN first, tailnet last.
    */
-  urls: string[];
+  urls: RemoteEndpointInfo[];
 }
 
 export interface RemoteSignalPayload {

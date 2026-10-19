@@ -10,6 +10,8 @@ export class PadInputState {
   private hat: number = SwitchHat.CENTER;
   private lx = STICK_CENTER;
   private ly = STICK_CENTER;
+  private rx = STICK_CENTER;
+  private ry = STICK_CENTER;
 
   setButton(name: string, down: boolean): void {
     const bit = (SwitchButton as Record<string, number>)[name];
@@ -27,22 +29,29 @@ export class PadInputState {
     this.ly = clamp(y);
   }
 
+  setRightStick(x: number, y: number): void {
+    const clamp = (v: number) => Math.min(255, Math.max(0, Math.round(v)));
+    this.rx = clamp(x);
+    this.ry = clamp(y);
+  }
+
   reset(): void {
     this.buttons = 0;
     this.hat = SwitchHat.CENTER;
     this.lx = STICK_CENTER;
     this.ly = STICK_CENTER;
+    this.rx = STICK_CENTER;
+    this.ry = STICK_CENTER;
   }
 
   report(): PadReport {
-    // Right stick has no touch surface in v1: stays centered.
     return {
       buttons: this.buttons,
       hat: this.hat,
       lx: this.lx,
       ly: this.ly,
-      rx: STICK_CENTER,
-      ry: STICK_CENTER,
+      rx: this.rx,
+      ry: this.ry,
     };
   }
 }

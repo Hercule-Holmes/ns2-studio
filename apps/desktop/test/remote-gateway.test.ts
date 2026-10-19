@@ -330,7 +330,32 @@ describe("RemoteGateway", () => {  it("authenticates with the config token and r
     await h.gateway.dispose();
   });
 
-  it("responds to wake with the firmware-unsupported placeholder (D3)", async () => {
+  it("extends the watchdog for sessions reporting high rtt", async () => {
+    const h = await makeGateway({ watchdogMs: 120 });
+    const client = await TestClient.connect(h.port);
+    client.send({ type: "auth", token: h.token });
+    await client.waitFor("authOk");
+    client.send({ type: "source", source: "remote" });
+    await client.waitFor("state");
+
+    // Report a 500ms RTT → effective watchdog = max(120, 500*6) = 3s.
+    client.send({ type: "ping", t: Date.now(), rttMs: 500 });
+    await client.waitFor("pong");
+
+    // 700ms of silence (> base 120ms) must NOT release the session.
+    await new Promise((r) => setTimeout(r, 700));
+    client.send({ type: "ping", t: Date.now() });
+    const pong = await client.waitFor("pong", 1500);
+    expect(pong.t).toBeTypeOf("number");
+
+    // Past the effective ceiling the session dies as usual.
+    await new Promise((r) => setTimeout(r, 3100));
+    await client.waitClosed(4000);
+    expect(h.hub.getState().activeSource).toBe("idle");
+    await h.gateway.dispose();
+  }, 15000);
+
+  it("responds to wake with an explicit not-connected result", async () => {
     const h = await makeGateway();
     const client = await TestClient.connect(h.port);
     client.send({ type: "auth", token: h.token });
@@ -338,8 +363,23 @@ describe("RemoteGateway", () => {  it("authenticates with the config token and r
     client.send({ type: "wake" });
     const res = await client.waitFor("wakeResult");
     expect(res.ok).toBe(false);
-    expect(res.code).toBe("firmware-unsupported");
+    expect(res.code).toBe("not-connected");
     client.close();
+    await h.gateway.dispose();
+  });
+
+  it("routes wake through the device and returns ok on ack", async () => {
+    const h = await makeGateway();
+    await h.service.connect(MOCK_PORT_PATH);
+    const client = await TestClient.connect(h.port);
+    client.send({ type: "auth", token: h.token });
+    await client.waitFor("authOk");
+    client.send({ type: "wake" });
+    const res = await client.waitFor("wakeResult");
+    expect(res.ok).toBe(true);
+    expect(res.code).toBe("ok");
+    client.close();
+    await h.service.disconnect();
     await h.gateway.dispose();
   });
 

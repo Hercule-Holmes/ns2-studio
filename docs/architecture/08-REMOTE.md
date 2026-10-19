@@ -76,12 +76,25 @@ InputHub 仲裁逻辑不变（切源先 neutral）。**Gateway 是唯一允许�
 | S→C | `{type:"state", hub, device}` | Hub/设备状态变化广播 |
 | S→C | `{type:"sessionLost", reason:"watchdog"\|"server"}` | 服务端终止会话并关闭连接 |
 
-### 4.3 信令（S15 预留，v1 透传）
+### 4.3 信令（S15，v1 透传 + 约定封装）
+
+WS 层不解析内容，双向透传 `payload`。封装约定（S15 实现定稿，2026-10-19）：
+
+| 方向 | payload | 说明 |
+|------|---------|------|
+| C→S | `{kind:"video-offer", sdp}` | 手机为 offerer（recvonly video） |
+| R→C | `{kind:"video-answer", sdp}` | Renderer 应答，附采集卡 sendonly 轨 |
+| 双向 | `{kind:"video-ice", candidate:<RTCIceCandidateInit\|null>}` | ICE 候选（answer 前到达的缓存到 answer 后重放） |
+| R→C | `{kind:"video-stop"}` | 桌面端释放（会话结束/取流出错）；手机关闭画面发同名消息，桌面端收到后不再回显 |
+| C→S | `{kind:"video-stop"}` | 手机主动关闭画面 |
 
 | 方向 | 消息 | 说明 |
 |------|------|------|
 | C→S | `{type:"signal", payload:<object>}` | 不透明 JSON，转发 Renderer |
 | S→C | `{type:"signal", payload:<object>}` | Renderer → 手机的信令 |
+
+信令处理约束：桌面端 `video-stop` → 释放采集卡流并关 PC（不回显）；
+手机端在 answer 到达前收到的 ICE 候选需缓存重放（answer 顺序竞态）。
 
 ### 4.4 错误
 
@@ -99,7 +112,7 @@ InputHub 仲裁逻辑不变（切源先 neutral）。**Gateway 是唯一允许�
 | 传输 | 局域网内明文 WS（可接受）；公网必经 Tailscale（WireGuard 加密）。**禁止**直接把端口映射到公网 |
 | WebRTC | DTLS-SRTP 端到端加密（浏览器强制） |
 | 会话 | 单客户端；断开/看门狗 → neutral + `idle` |
-| 看门狗 | 会话激活期间 `watchdogMs`（默认 1000ms）内无任何消息 → 强制 neutral + 回 `idle` + `sessionLost` + 断开 |
+| 看门狗 | 会话激活期间 `watchdogMs`（默认 1000ms）内无任何消息 → 强制 neutral + 回 `idle` + `sessionLost` + 断开。**自适应（2026-10-20）**：手机 ping 携带实测 `rttMs`，实际阈值 = `max(watchdogMs, rtt×6)`——DERP 中继/4G 等高 RTT 路径不再被误杀 |
 | 静态页 | 无需 token（仅壳页面），所有控制类消息必须先 `auth` |
 
 ## 6. 网络拓扑

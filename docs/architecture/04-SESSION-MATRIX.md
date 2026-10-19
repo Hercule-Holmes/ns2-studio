@@ -16,12 +16,13 @@
 | **S8** | NS2 Pro 采集转发 | P1 | S3 | 输入 | 2–3d | in_progress |
 | **S9** | Amiibo 库与协议下发 | P1 | S2, 固件能力 | 桌面 | 1–2d | done |
 | **S10** | Amiibo 时间轴轨道 | P1 | S5, S6, S9 | 桌面 | 0.5–1d | done |
-| **S11** | 工程管理/设置/安装包打磨 | P2 | S6 | 桌面 | 1–2d | blocked |
+| **S11** | 打磨与发布（设置/打包/图标） | P2 | S6 | 桌面 | 1–2d | done |
 | **S12** | 文档收口与端到端验收 | P2 | 主路径完成 | 架构 | 1d | blocked |
-| **S13** | 远程桥（Gateway/remote 源/鉴权） | P1 | S3 | 桌面 | 1–2d | in_progress |
-| **S14** | 手机控制页（触屏手柄） | P1 | S13 | 桌面-Web | 2–3d | in_progress |
-| **S15** | 远程视频下行（WebRTC） | P1 | S13, S14 | 桌面 | 2–3d | ready |
-| **S16** | 公网访问（Tailscale） | P2 | S13 | 文档 | 0.5d | ready |
+| **S13** | 远程桥（Gateway/remote 源/鉴权） | P1 | S3 | 桌面 | 1–2d | done |
+| **S14** | 手机控制页（触屏手柄） | P1 | S13 | 桌面-Web | 2–3d | done |
+| **S15** | 远程视频下行（WebRTC） | P1 | S13, S14 | 桌面 | 2–3d | in_progress |
+| **S16** | 公网访问（Tailscale） | P2 | S13 | 文档 | 0.5d | done |
+| **S17** | 手机端操控重构（横屏 Overlay） | P2 | S14 | 桌面-Web | 0.5–1d | in_progress |
 
 \*S1 可与 S0 **并行**；但 **合并发布/真机演示** 必须 S0 通过。S1 单测不依赖硬件。
 
@@ -139,3 +140,4 @@ S6 + S7 + S9 → S10 → S11 → S12
 | S14 | [sessions/S14-remote-client.md](../sessions/S14-remote-client.md) |
 | S15 | [sessions/S15-remote-video.md](../sessions/S15-remote-video.md) |
 | S16 | [sessions/S16-remote-public.md](../sessions/S16-remote-public.md) |
+| S17 | [sessions/S17-remote-touch-ux.md](../sessions/S17-remote-touch-ux.md) |

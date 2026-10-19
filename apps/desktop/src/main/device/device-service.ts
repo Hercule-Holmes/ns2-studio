@@ -12,6 +12,7 @@ import type {
   DeviceStatus,
   LogDirection,
   LogLine,
+  WakeResult,
 } from "../../shared/ipc";
 import { ReportWriter } from "./report-writer";
 import type { SerialPortLike } from "./types";
@@ -50,6 +51,7 @@ export interface DeviceServiceOptions {
 }
 
 const VERSION_FRAME = Uint8Array.from([EzDvCommand.Ready, EzDvCommand.Version]);
+const WAKE_FRAME = Uint8Array.from([EzDvCommand.Ready, EzDvCommand.Wake]);
 
 function formatReport(report: PadReport): string {
   return `report buttons=0x${report.buttons.toString(16)} hat=${report.hat} lx=${report.lx} ly=${report.ly} rx=${report.rx} ry=${report.ry}`;
@@ -200,6 +202,75 @@ export class DeviceService extends TypedEmitter<DeviceServiceEvents> {
   async sendReport(report: PadReport): Promise<void> {
     this.writer?.enqueueReport(report);
     await this.writer?.flush();
+  }
+
+  /**
+   * Ask the MCU to wake a sleeping Switch (CMD_WAKE 0x92, 02-PROTOCOL.md
+   * §3.4). The replug path (sleep-detached dock port) can take ~3.5s, so
+   * the wait window is generous; one retry on timeout. Ack covers "already
+   * awake" and "woken" — both map to ok.
+   */
+  async wake(timeoutMs = 6000, retries = 1): Promise<WakeResult> {
+    if (!this.isConnected || !this.writer) {
+      return {
+        ok: false,
+        code: "not-connected",
+        message: "设备未连接，无法发送唤醒命令",
+      };
+    }
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      const result = await this.wakeOnce(timeoutMs);
+      if (result.ok || result.code !== "timeout") return result;
+      this.log("warn", `wake timeout (attempt ${attempt + 1}), retrying`);
+    }
+    return {
+      ok: false,
+      code: "timeout",
+      message: "唤醒命令无响应（超时）",
+    };
+  }
+
+  private wakeOnce(timeoutMs: number): Promise<WakeResult> {
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        cleanup();
+        resolve({ ok: false, code: "timeout" });
+      }, timeoutMs);
+      const onData = (data: Uint8Array) => {
+        // Reply is a lone 0xFF (ok), or 0x00 optionally followed by a
+        // 1-byte reason code (firmware WAKE_ERR_*). Multi-byte report
+        // traffic can embed both values, so only accept short chunks.
+        if (data.length === 1 && data[0] === Reply.Ack) {
+          cleanup();
+          this.log("info", "wake ack");
+          resolve({
+            ok: true,
+            code: "ok",
+            message: "主机已唤醒（或本就未休眠）",
+          });
+          return;
+        }
+        if (
+          (data.length === 1 || data.length === 2) &&
+          data[0] === Reply.Error
+        ) {
+          cleanup();
+          this.log("warn", `wake error reply${data[1] !== undefined ? ` (reason 0x${data[1].toString(16)})` : ""}`);
+          resolve({
+            ok: false,
+            code: "error",
+            message:
+              "唤醒失败：主机未启用有线唤醒，或固件未实现 CMD_WAKE 0x92",
+          });
+        }
+      };
+      const cleanup = () => {
+        clearTimeout(timer);
+        this.offRx(onData);
+      };
+      this.onRx(onData);
+      this.writer?.enqueueCommand(WAKE_FRAME);
+    });
   }
 
   /** App-quit hook: neutral + close, fire-and-forget. */

@@ -2,6 +2,7 @@ import "./style.css";
 import { PadInputState } from "./state";
 import { wireGamepad } from "./gamepad";
 import { RemoteLink, type HubDeviceState } from "./link";
+import { VideoClient, type VideoClientState } from "./video";
 
 // ---------------------------------------------------------------------------
 // DOM refs
@@ -21,6 +22,10 @@ const stSource = $("st-source");
 const stRtt = $("st-rtt");
 const btnWake = $<HTMLButtonElement>("btn-wake");
 const btnTake = $<HTMLButtonElement>("btn-take");
+const videoSlot = $("video-slot");
+const videoStateEl = $("video-state");
+const btnVideo = $<HTMLButtonElement>("btn-video");
+const btnFs = $<HTMLButtonElement>("btn-fs");
 
 // ---------------------------------------------------------------------------
 // App state
@@ -28,6 +33,10 @@ const btnTake = $<HTMLButtonElement>("btn-take");
 
 const state = new PadInputState();
 const link = new RemoteLink(window.location.origin);
+const videoClient = new VideoClient($<HTMLVideoElement>("video"), {
+  send: (payload) => link.sendSignal(payload),
+  onState: renderVideoState,
+});
 let token = sessionStorage.getItem("ns2-remote-token") ?? "";
 let lastSent: string | null = null;
 let hubSource = "idle";
@@ -95,6 +104,31 @@ function sendPadIfChanged(): void {
   link.sendPad(report);
 }
 
+function renderVideoState(s: VideoClientState, detail?: string): void {
+  videoSlot.classList.toggle("live", s === "live");
+  switch (s) {
+    case "connecting":
+      videoStateEl.textContent = "协商中…";
+      btnVideo.textContent = "关闭画面";
+      break;
+    case "live":
+      videoStateEl.textContent = "";
+      btnVideo.textContent = "关闭画面";
+      break;
+    case "no-signal":
+      videoStateEl.textContent = "无信号（主机休眠或采集卡无输入）";
+      btnVideo.textContent = "关闭画面";
+      break;
+    case "error":
+      videoStateEl.textContent = `视频错误：${detail ?? "未知"}`;
+      btnVideo.textContent = "开启画面";
+      break;
+    default:
+      videoStateEl.textContent = "无信号";
+      btnVideo.textContent = "开启画面";
+  }
+}
+
 function releaseAll(): void {
   state.reset();
   lastSent = null;
@@ -115,6 +149,11 @@ link.onPhase = (phase, detail) => {
     stageEl.style.display = "none";
     gateEl.style.display = "flex";
     taken = false;
+    videoClient.stop();
+  } else if (phase === "lost") {
+    // Orphaned negotiation from the dead socket must not survive a
+    // reconnect — otherwise 开启画面 would be stuck at 协商中.
+    videoClient.stop();
   } else if (phase === "error" && detail) {
     gateError.textContent = detail;
     toast(detail);
@@ -139,6 +178,7 @@ link.onSessionLost = (reason) => {
   state.reset();
   lastSent = null;
   taken = false;
+  videoClient.stop();
   toast(
     reason === "watchdog"
       ? "会话超时已释放（保持心跳即可维持）"
@@ -151,11 +191,26 @@ link.onWakeResult = (r) => {
   else toast(r.message ?? "唤醒暂不支持（固件未实现）");
 };
 
+link.onSignal = (payload) => {
+  void videoClient.handleSignal(payload);
+};
+
 // ---------------------------------------------------------------------------
 // Wiring
 // ---------------------------------------------------------------------------
 
-wireGamepad(stageEl, $("stick"), $("stick-knob"), state, sendPadIfChanged);
+wireGamepad(stageEl, state, sendPadIfChanged, [
+  {
+    el: $<HTMLElement>("stick"),
+    knob: $<HTMLElement>("stick-knob"),
+    set: (x, y) => state.setLeftStick(x, y),
+  },
+  {
+    el: $<HTMLElement>("stick-r"),
+    knob: $<HTMLElement>("stick-r-knob"),
+    set: (x, y) => state.setRightStick(x, y),
+  },
+]);
 
 btnTake.addEventListener("click", () => {
   if (link.phase !== "ready") return;
@@ -173,6 +228,61 @@ btnWake.addEventListener("click", () => {
   btnWake.disabled = true;
   link.wake();
   window.setTimeout(() => (btnWake.disabled = false), 2000);
+});
+
+btnVideo.addEventListener("click", () => {
+  if (link.phase !== "ready") return;
+  if (videoClient.currentState === "idle") {
+    if (!taken) {
+      toast("请先接管控制，再开启画面");
+      return;
+    }
+    void videoClient.start();
+  } else {
+    videoClient.stop();
+    link.sendSignal({ kind: "video-stop" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Fullscreen mode (S17): request fullscreen + lock landscape + hide the
+// status bar. Orientation lock is Android-Chrome only; elsewhere we degrade
+// to "hide status bar" only. The tiny ⛶ button stays to toggle back.
+// ---------------------------------------------------------------------------
+
+let fsOn = false;
+
+async function setFullscreen(on: boolean): Promise<void> {
+  fsOn = on;
+  document.body.classList.toggle("fs-mode", on);
+  try {
+    if (on) {
+      await document.documentElement.requestFullscreen();
+    } else if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    }
+  } catch {
+    /* iOS Safari: no element fullscreen — status-bar hiding still applies */
+  }
+  try {
+    const so = screen.orientation as ScreenOrientation & {
+      lock?: (o: string) => Promise<void>;
+      unlock?: () => void;
+    };
+    if (on) await so?.lock?.("landscape");
+    else so?.unlock?.();
+  } catch {
+    /* orientation lock unsupported */
+  }
+}
+
+btnFs.addEventListener("click", () => {
+  void setFullscreen(!fsOn);
+});
+
+document.addEventListener("fullscreenchange", () => {
+  // User left fullscreen via a system gesture: sync our visual state back.
+  if (!document.fullscreenElement && fsOn) void setFullscreen(false);
 });
 
 gateConnect.addEventListener("click", () => {
