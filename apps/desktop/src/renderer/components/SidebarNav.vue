@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { RouterLink, useRoute } from "vue-router";
+import { Gamepad2 } from "lucide-vue-next";
 import { NAV_ITEMS } from "../router";
 
 const route = useRoute();
@@ -8,8 +9,8 @@ const route = useRoute();
 <template>
   <aside class="sidebar">
     <div class="brand">
-      <span class="brand-mark">NS2</span>
-      <span class="brand-name">Studio</span>
+      <span class="brand-mark"><Gamepad2 :size="20" /></span>
+      <span class="brand-name">NS2 Studio</span>
     </div>
     <nav class="nav">
       <RouterLink
@@ -19,7 +20,8 @@ const route = useRoute();
         class="nav-item"
         :class="{ active: route.path === item.path }"
       >
-        {{ item.title }}
+        <component :is="item.icon" class="icon" :size="17" />
+        <span>{{ item.title }}</span>
       </RouterLink>
     </nav>
   </aside>
@@ -27,9 +29,9 @@ const route = useRoute();
 
 <style scoped>
 .sidebar {
-  width: 180px;
+  width: 190px;
   flex-shrink: 0;
-  background: var(--bg-panel);
+  background: var(--surface);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -37,21 +39,21 @@ const route = useRoute();
 
 .brand {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
   padding: 18px 16px 14px;
   border-bottom: 1px solid var(--border);
 }
 
 .brand-mark {
-  color: var(--accent);
-  font-weight: 700;
-  font-size: 18px;
+  color: var(--brand);
+  display: inline-flex;
 }
 
 .brand-name {
-  color: var(--text-dim);
+  color: var(--text);
   font-size: 14px;
+  font-weight: 700;
 }
 
 .nav {
@@ -62,21 +64,33 @@ const route = useRoute();
 }
 
 .nav-item {
-  display: block;
-  padding: 8px 12px;
-  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border-radius: var(--radius-pill);
   color: var(--text-dim);
   text-decoration: none;
   font-size: 13px;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.nav-item .icon {
+  flex-shrink: 0;
 }
 
 .nav-item:hover {
   color: var(--text);
-  background: var(--bg-elevated);
+  background: var(--surface-raised);
 }
 
+/* Switch signature: the selected item inverts to a light pill (dark text);
+   in the light theme it inverts to a dark pill (light text). */
 .nav-item.active {
-  color: var(--accent);
-  background: var(--bg-elevated);
+  background: var(--selected-bg);
+  color: var(--selected-text);
+  font-weight: 600;
 }
 </style>

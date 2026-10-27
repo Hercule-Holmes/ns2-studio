@@ -45,6 +45,8 @@ export interface LogLine {
 export interface AppSettings {
   lastPort?: string;
   lastBaud?: number;
+  /** UI theme (S18); applied via <html data-theme>. Defaults to "dark". */
+  theme?: "dark" | "light";
 }
 
 /**

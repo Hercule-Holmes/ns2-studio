@@ -10,8 +10,14 @@ import type {
 } from "../../shared/ipc";
 import LogPanel from "../components/LogPanel.vue";
 import StatusLight from "../components/StatusLight.vue";
+import AppCard from "../components/ui/AppCard.vue";
+import AppButton from "../components/ui/AppButton.vue";
+import AppSelect from "../components/ui/AppSelect.vue";
 
-const BAUD_OPTIONS = [115200, 9600];
+const BAUD_OPTIONS = [
+  { value: 115200, label: "115200" },
+  { value: 9600, label: "9600" },
+];
 
 const ports = ref<string[]>([]);
 const selectedPort = ref("");
@@ -20,6 +26,10 @@ const status = ref<DeviceStatus>({ state: "disconnected" });
 const logs = ref<LogLine[]>([]);
 const busy = ref(false);
 const showDebug = ref(false);
+
+const portOptions = computed(() =>
+  ports.value.map((p) => ({ value: p, label: p })),
+);
 
 const captureDevices = ref<CaptureDeviceInfo[]>([]);
 const captureStatus = ref<CaptureStatus>({ state: "idle", initMode: "listen-only" });
@@ -167,30 +177,29 @@ onUnmounted(() => {
   <div class="device-page">
     <h1>设备</h1>
 
-    <section class="card">
-      <h2>串口连接</h2>
-      <div class="row">
-        <label class="field">
-          <span>端口</span>
-          <select v-model="selectedPort">
-            <option v-for="p in ports" :key="p" :value="p">{{ p }}</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>波特率</span>
-          <select v-model.number="baud">
-            <option v-for="b in BAUD_OPTIONS" :key="b" :value="b">{{ b }}</option>
-          </select>
-        </label>
-        <button class="ghost" :disabled="busy" @click="refreshPorts">刷新</button>
-        <button
-          class="primary"
+    <AppCard title="串口连接">
+      <template #actions>
+        <AppButton variant="ghost" :disabled="busy" @click="refreshPorts">
+          刷新
+        </AppButton>
+        <AppButton
+          variant="primary"
           :disabled="busy || !selectedPort || isConnected"
           @click="connect"
         >
           {{ busyText }}
-        </button>
-        <button :disabled="!isConnected" @click="disconnect">断开</button>
+        </AppButton>
+        <AppButton :disabled="!isConnected" @click="disconnect">断开</AppButton>
+      </template>
+
+      <div class="row">
+        <AppSelect
+          v-model="selectedPort"
+          label="端口"
+          :options="portOptions"
+          :disabled="isConnected"
+        />
+        <AppSelect v-model="baud" label="波特率" :options="BAUD_OPTIONS" />
       </div>
 
       <div class="status-row">
@@ -201,25 +210,25 @@ onUnmounted(() => {
         </span>
         <span v-if="status.error" class="status-error">{{ status.error }}</span>
       </div>
-    </section>
+    </AppCard>
 
-    <section class="card">
-      <div class="row">
-        <h2>指令</h2>
-        <button :disabled="!isConnected" @click="sendNeutral">发送中立</button>
-        <button
-          class="primary"
+    <AppCard title="指令">
+      <template #actions>
+        <AppButton :disabled="!isConnected" @click="sendNeutral">发送中立</AppButton>
+        <AppButton
+          variant="primary"
           :disabled="!isConnected || wakeBusy"
           :title="'主机休眠时经 USB 远程唤醒（CMD_WAKE 0x92，需固件支持）'"
           @click="wakeHost"
         >
           {{ wakeBusy ? "唤醒中…" : "唤醒主机" }}
-        </button>
-        <label>
+        </AppButton>
+        <label class="check">
           <input v-model="showDebug" type="checkbox" />
           调试
         </label>
-      </div>
+      </template>
+
       <p v-if="wakeResult" class="hint" :class="{ 'wake-error': !wakeOk }">
         {{ wakeResult }}
       </p>
@@ -228,27 +237,26 @@ onUnmounted(() => {
           调试通道：通过主进程写队列下发一帧报告（A 键按下）。正式功能请走
           InputHub（S3）。
         </p>
-        <button :disabled="!isConnected" @click="sendDebugReport">
+        <AppButton :disabled="!isConnected" @click="sendDebugReport">
           下发测试报告 (A)
-        </button>
+        </AppButton>
       </div>
-    </section>
+    </AppCard>
 
-    <section class="card">
-      <div class="row">
-        <h2>NS2 Pro 采集（forward）</h2>
-        <button class="ghost" :disabled="captureBusy" @click="refreshCapture">
+    <AppCard title="NS2 Pro 采集（forward）">
+      <template #actions>
+        <AppButton variant="ghost" :disabled="captureBusy" @click="refreshCapture">
           刷新设备
-        </button>
-        <button
-          class="primary"
+        </AppButton>
+        <AppButton
+          variant="primary"
           :disabled="captureBusy || captureRunning"
           @click="startCapture"
         >
           开始转发
-        </button>
-        <button :disabled="!captureRunning" @click="stopCapture">停止</button>
-      </div>
+        </AppButton>
+        <AppButton :disabled="!captureRunning" @click="stopCapture">停止</AppButton>
+      </template>
 
       <div class="status-row">
         <StatusLight
@@ -292,7 +300,7 @@ onUnmounted(() => {
         采集解析为 PadReport 后经 InputHub <code>forward</code> 源下发到设备；
         停止或拔线自动中立。C/GL/GR 无对应位，MVP 忽略（R11）。
       </p>
-    </section>
+    </AppCard>
 
     <section class="log-card">
       <LogPanel :logs="logs" />
@@ -311,46 +319,7 @@ onUnmounted(() => {
 
 .device-page h1 {
   margin: 0;
-  font-size: 22px;
-}
-
-.card,
-.log-card {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-panel);
-  padding: 16px;
-}
-
-.card h2 {
-  margin: 0 0 12px;
-  font-size: 14px;
-  color: var(--text-dim);
-  font-weight: 600;
-}
-
-.row {
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.row h2 {
-  margin: 0;
-  align-self: center;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: flex-start;
-}
-
-.field span {
-  color: var(--text-dim);
-  font-size: 12px;
+  font-size: 24px;
 }
 
 .status-row {
@@ -370,8 +339,8 @@ onUnmounted(() => {
   font-size: 13px;
 }
 
-.ghost {
-  background: transparent;
+.check {
+  padding-bottom: 6px;
 }
 
 .debug-row {
@@ -407,15 +376,14 @@ onUnmounted(() => {
   font-size: 13px;
   padding: 6px 10px;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-elevated);
-}
-
-.mono {
-  font-family: var(--mono);
+  border-radius: var(--radius-ctl);
+  background: var(--surface-raised);
 }
 
 .log-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
   flex: 1;
   min-height: 0;
   display: flex;

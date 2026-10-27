@@ -23,6 +23,7 @@
 | **S15** | 远程视频下行（WebRTC） | P1 | S13, S14 | 桌面 | 2–3d | in_progress |
 | **S16** | 公网访问（Tailscale） | P2 | S13 | 文档 | 0.5d | done |
 | **S17** | 手机端操控重构（横屏 Overlay） | P2 | S14 | 桌面-Web | 0.5–1d | in_progress |
+| **S18** | UI 基建：Switch 风格双主题 + ui/ 组件库 + DevicePage 样板 | P1 | — | 桌面-Web | 1d | done |
 
 \*S1 可与 S0 **并行**；但 **合并发布/真机演示** 必须 S0 通过。S1 单测不依赖硬件。
 
@@ -141,3 +142,4 @@ S6 + S7 + S9 → S10 → S11 → S12
 | S15 | [sessions/S15-remote-video.md](../sessions/S15-remote-video.md) |
 | S16 | [sessions/S16-remote-public.md](../sessions/S16-remote-public.md) |
 | S17 | [sessions/S17-remote-touch-ux.md](../sessions/S17-remote-touch-ux.md) |
+| S18 | [sessions/S18-ui-foundation.md](../sessions/S18-ui-foundation.md) |

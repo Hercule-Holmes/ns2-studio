@@ -1,14 +1,20 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import type { AppConfig, AppInfo } from "../../shared/ipc";
+import { applyTheme, useTheme } from "../composables/use-theme";
 
 const BAUD_OPTIONS = [9600, 115200];
+const THEME_OPTIONS = [
+  { value: "dark", label: "深色" },
+  { value: "light", label: "浅色" },
+] as const;
 
 const config = ref<AppConfig | null>(null);
 const appInfo = ref<AppInfo | null>(null);
 const saved = ref(false);
 const saveError = ref<string | null>(null);
 const loaded = ref(false);
+const { current: theme } = useTheme();
 
 const serialIntervalMs = ref(2);
 const serialBaud = ref(115200);
@@ -27,6 +33,11 @@ async function load(): Promise<void> {
   captureSwapABXY.value = config.value.capture.swapABXY;
   timelineGridMs.value = config.value.timeline.gridMs;
   loaded.value = true;
+}
+
+async function onThemeChange(theme: "dark" | "light"): Promise<void> {
+  applyTheme(theme);
+  await window.api.settings.update({ theme });
 }
 
 async function save(): Promise<void> {
@@ -59,6 +70,27 @@ onMounted(load);
 <template>
   <div class="settings-page">
     <h1>设置</h1>
+
+    <section class="card">
+      <h2>外观</h2>
+      <div class="row">
+        <label class="field">
+          <span>主题</span>
+          <select
+            :value="theme"
+            @change="
+              onThemeChange(
+                ($event.target as HTMLSelectElement).value as 'dark' | 'light',
+              )
+            "
+          >
+            <option value="dark">深色</option>
+            <option value="light">浅色</option>
+          </select>
+        </label>
+      </div>
+      <p class="hint">主题即时生效并记住选择（S18）。</p>
+    </section>
 
     <section class="card">
       <h2>串口</h2>

@@ -18,6 +18,7 @@
     "@ns2-studio/pad-types": "workspace:*",
     "@ns2-studio/protocol": "workspace:*",
     "@ns2-studio/timeline-model": "workspace:*",
+    "lucide-vue-next": "^1.0.0",
     "node-hid": "^3.4.0",
     "serialport": "^12.0.0",
     "vue": "^3.5.41",
@@ -57,11 +58,15 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },

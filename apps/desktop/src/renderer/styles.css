@@ -1,17 +1,59 @@
+/* S18: Switch-style design tokens + dual theme (dark default / light) + base styles. */
+
 :root {
   color-scheme: dark;
-  --bg: #14161c;
-  --bg-panel: #1c1f27;
-  --bg-elevated: #232733;
-  --border: #2e3340;
-  --text: #d7dbe3;
-  --text-dim: #8b91a0;
-  --accent: #4f8cff;
-  --accent-dim: #3b6fd6;
+
+  /* core surfaces (Switch dark) */
+  --bg: #1a1a1c;
+  --surface: #2a2a2e;
+  --surface-raised: #34343a;
+  --border: #3c3c46;
+
+  /* text */
+  --text: #e8e8ec;
+  --text-dim: #9a9aa5;
+
+  /* inverted selection (Switch signature): light pill on dark bg */
+  --selected-bg: #f2f2f7;
+  --selected-text: #1a1a1c;
+
+  /* brand + semantics */
+  --brand: #e60012;
+  --brand-hover: #c4000f;
   --ok: #3ecf8e;
   --warn: #e0b448;
   --error: #f06060;
+
+  /* radii */
+  --radius-card: 14px;
+  --radius-ctl: 10px;
+  --radius-pill: 999px;
+
+  /* legacy aliases (un-migrated S20 pages keep rendering until migrated) */
+  --bg-panel: var(--surface);
+  --bg-elevated: var(--surface-raised);
+  --accent: var(--brand);
+  --accent-dim: var(--brand-hover);
+
   --mono: "Cascadia Code", Consolas, "Courier New", monospace;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  /* core surfaces (Switch light) */
+  --bg: #ebebeb;
+  --surface: #ffffff;
+  --surface-raised: #f7f7f8;
+  --border: #d9d9df;
+
+  /* text */
+  --text: #3c3c43;
+  --text-dim: #7a7a85;
+
+  /* inverted selection: dark pill on light bg */
+  --selected-bg: #2d2d2d;
+  --selected-text: #ffffff;
 }
 
 * {
@@ -32,43 +74,74 @@ body {
   font-size: 14px;
 }
 
+/* ---- controls (global defaults; ui/ components build on these) ---- */
+
+button,
+select,
+input {
+  font-family: inherit;
+}
+
 button {
-  background: var(--bg-elevated);
+  background: var(--surface-raised);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  padding: 7px 16px;
   font-size: 13px;
   cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    color 0.15s;
 }
 
 button:hover:not(:disabled) {
-  border-color: var(--accent);
+  border-color: var(--brand);
 }
 
 button:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
 button.primary {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--brand);
+  border-color: var(--brand);
   color: #fff;
+  font-weight: 600;
 }
 
 button.primary:hover:not(:disabled) {
-  background: var(--accent-dim);
+  background: var(--brand-hover);
+  border-color: var(--brand-hover);
+}
+
+button.ghost {
+  background: transparent;
 }
 
 select,
 input {
-  background: var(--bg-elevated);
+  background: var(--surface-raised);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 6px 8px;
+  border-radius: var(--radius-ctl);
+  padding: 7px 10px;
   font-size: 13px;
+}
+
+select:focus-visible,
+input:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
+input[type="checkbox"] {
+  accent-color: var(--brand);
+  width: 15px;
+  height: 15px;
 }
 
 label {
@@ -76,4 +149,55 @@ label {
   align-items: center;
   gap: 6px;
   color: var(--text-dim);
+}
+
+/* ---- shared layout utilities (used by migrated pages) ---- */
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  padding: 16px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.hint {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.mono {
+  font-family: var(--mono);
+}
+
+/* ---- scrollbars (theme-tinted, slim) ---- */
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--text-dim);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
