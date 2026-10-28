@@ -21,6 +21,9 @@ import { TimelineEngine } from "./timeline/engine";
 import { CaptureService } from "./capture/capture-service";
 import { RemoteGateway } from "./remote/gateway";
 import { KeepaliveService } from "./remote/keepalive";
+import { NintendoService } from "./nintendo/service";
+import { NintendoAccountStore, type NintendoCryptor } from "./nintendo/account-store";
+import { safeStorage } from "electron";
 import { registerIpc } from "./ipc/register";
 
 const device = new DeviceService({
@@ -91,7 +94,27 @@ const remote = new RemoteGateway({
 // B3 (wake-research): keep the NS awake while a remote session is active.
 const keepalive = new KeepaliveService(hub, device, config);
 
-let mainWindow: BrowserWindow | null = null;
+// S19: Nintendo playtime (parental controls API, own account only).
+const nintendoCryptor: NintendoCryptor = {
+  encrypt: (plain) =>
+    safeStorage.isEncryptionAvailable()
+      ? safeStorage.encryptString(plain).toString("base64")
+      : "plain:" + Buffer.from(plain, "utf8").toString("base64"),
+  decrypt: (enc) =>
+    enc.startsWith("plain:")
+      ? Buffer.from(enc.slice(6), "base64").toString("utf8")
+      : safeStorage.decryptString(Buffer.from(enc, "base64")),
+};
+const nintendo = new NintendoService(
+  new NintendoAccountStore(
+    join(app.getPath("userData"), "nintendo", "store.json"),
+    join(app.getPath("userData"), "nintendo", "covers"),
+    nintendoCryptor,
+  ),
+  nintendoCryptor,
+  () => mainWindow,
+);
+
 
 // S15: capture-card video needs camera/mic access inside the renderer. The
 // app has no untrusted content (contextIsolation + no remote navigation), so
@@ -106,6 +129,8 @@ function setupMediaPermissions(): void {
     (_wc, permission) => (grant as readonly string[]).includes(permission),
   );
 }
+
+let mainWindow: BrowserWindow | null = null;
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -139,7 +164,7 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   setupMediaPermissions();
-  registerIpc(device, settings, config, logger, hub, amiibo, recorder, timeline, capture, remote, () => mainWindow);
+  registerIpc(device, settings, config, logger, hub, amiibo, recorder, timeline, capture, remote, nintendo, () => mainWindow);
   createWindow();
   keepalive.start();
   if (config.get().remote.enabled) {

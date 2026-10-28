@@ -5,6 +5,7 @@ import type { CompileResult, Project } from "@ns2-studio/timeline-model";
 import type { RecordingSource } from "@ns2-studio/timeline-model";
 import {
   AmiiboChannels,
+  NintendoChannels,
   AppInfoChannels,
   CaptureChannels,
   ConfigChannels,
@@ -18,8 +19,10 @@ import {
   SettingsChannels,
   TimelineChannels,
 } from "../../shared/channels";
+import type { NintendoService } from "../nintendo/service";
 import type {
   AmiiboCapabilities,
+  NintendoSyncProgress,
   AmiiboProgress,
   CaptureStartResult,
   CaptureStatus,
@@ -63,6 +66,7 @@ export function registerIpc(
   timeline: TimelineEngine,
   capture: CaptureService,
   remote: RemoteGateway,
+  nintendo: NintendoService,
   getWindow: () => BrowserWindow | null,
 ): () => void {
   const logBuffer: LogLine[] = [];
@@ -360,6 +364,28 @@ export function registerIpc(
     remote.sendSignalToClient(payload);
   });
 
+  const onNintendoProgress = (p: NintendoSyncProgress) => {
+    getWindow()?.webContents.send(NintendoChannels.syncProgress, p);
+  };
+  const onNintendoChanged = () => {
+    getWindow()?.webContents.send(NintendoChannels.changed);
+  };
+  nintendo.on("syncProgress", onNintendoProgress);
+  nintendo.on("changed", onNintendoChanged);
+
+  ipcMain.handle(NintendoChannels.accounts, () => nintendo.listAccounts());
+  ipcMain.handle(NintendoChannels.accountAdd, () => nintendo.addAccount());
+  ipcMain.handle(NintendoChannels.accountRemove, (_e, sub: string) => {
+    nintendo.removeAccount(sub);
+  });
+  ipcMain.handle(NintendoChannels.sync, (_e, sub?: string) => nintendo.sync(sub));
+  ipcMain.handle(NintendoChannels.data, (_e, sub?: string) =>
+    nintendo.getMergedDays(sub),
+  );
+  ipcMain.handle(NintendoChannels.cover, (_e, appId: string) =>
+    nintendo.getCover(appId),
+  );
+
   return () => {
     device.off("log", pushLog);
     device.off("stateChanged", onStateChanged);
@@ -374,5 +400,7 @@ export function registerIpc(
     capture.off("log", pushLog);
     offRemoteStatus();
     offRemoteSignal();
+    nintendo.off("syncProgress", onNintendoProgress);
+    nintendo.off("changed", onNintendoChanged);
   };
 }

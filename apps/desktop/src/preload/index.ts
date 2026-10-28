@@ -10,6 +10,7 @@ import {
   DeviceChannels,
   HubChannels,
   LogChannels,
+  NintendoChannels,
   PadChannels,
   ProjectChannels,
   RecorderChannels,
@@ -22,6 +23,7 @@ import type {
   AmiiboProgress,
   AppConfig,
   AppInfo,
+  NintendoSyncProgress,
   AppSettings,
   CaptureDeviceInfo,
   CaptureStartResult,
@@ -144,7 +146,18 @@ const api: RendererApi = {
       subscribe<AmiiboProgress>(AmiiboChannels.progress, cb),
     onCapabilitiesChanged: (cb: (c: AmiiboCapabilities) => void) =>
       subscribe<AmiiboCapabilities>(AmiiboChannels.capabilitiesChanged, cb),
+  },  nintendo: {
+    accounts: () => ipcRenderer.invoke(NintendoChannels.accounts),
+    addAccount: () => ipcRenderer.invoke(NintendoChannels.accountAdd),
+    removeAccount: (sub: string) => ipcRenderer.invoke(NintendoChannels.accountRemove, sub),
+    sync: (sub?: string) => ipcRenderer.invoke(NintendoChannels.sync, sub),
+    data: (sub?: string) => ipcRenderer.invoke(NintendoChannels.data, sub),
+    cover: (appId: string) => ipcRenderer.invoke(NintendoChannels.cover, appId),
+    onSyncProgress: (cb: (p: NintendoSyncProgress) => void) =>
+      subscribe<NintendoSyncProgress>(NintendoChannels.syncProgress, cb),
+    onChanged: (cb: () => void) => subscribe<void>(NintendoChannels.changed, cb),
   },
+
   capture: {
     list: (): Promise<CaptureDeviceInfo[]> =>
       ipcRenderer.invoke(CaptureChannels.list),

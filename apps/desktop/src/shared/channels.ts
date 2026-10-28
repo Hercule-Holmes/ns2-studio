@@ -12,3 +12,4 @@ export * from "./channels-pad";
 export * from "./channels-capture";
 export * from "./channels-recorder";
 export * from "./channels-remote";
+export * from "./channels-nintendo";

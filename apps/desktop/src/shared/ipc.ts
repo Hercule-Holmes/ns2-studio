@@ -42,6 +42,42 @@ export interface LogLine {
   hex?: string;
 }
 
+export interface NintendoAccountView {
+  sub: string;
+  nickname: string;
+  addedAt: string;
+  lastSyncAt: string | null;
+}
+
+export interface NintendoSyncProgress {
+  sub: string;
+  phase: string;
+  message?: string;
+}
+
+export interface NintendoMergedDay {
+  date: string;
+  totalSeconds: number;
+  perAccount: Record<string, number>;
+  apps: Array<{
+    id: string;
+    name: string;
+    totalSeconds: number;
+    perAccount: Record<string, number>;
+  }>;
+}
+
+export interface NintendoApi {
+  accounts(): Promise<NintendoAccountView[]>;
+  addAccount(): Promise<NintendoAccountView>;
+  removeAccount(sub: string): Promise<void>;
+  sync(sub?: string): Promise<void>;
+  data(sub?: string): Promise<NintendoMergedDay[]>;
+  cover(appId: string): Promise<string | null>;
+  onSyncProgress(cb: (p: NintendoSyncProgress) => void): () => void;
+  onChanged(cb: () => void): () => void;
+}
+
 export interface AppSettings {
   lastPort?: string;
   lastBaud?: number;
@@ -224,6 +260,7 @@ export interface ProjectApi {
 export interface RendererApi {
   device: DeviceApi;
   settings: SettingsApi;
+  nintendo: NintendoApi;
   config: ConfigApi;
   appInfo: AppInfoApi;
   hub: HubApi;
