@@ -18,6 +18,13 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     videoDeviceId: "",
     keepaliveMs: 20000,
   },
+  // S21: eShop DNS 优选加速 — off by default; NS2 points its primary DNS at
+  // the PC, secondary DNS stays a public resolver so PC-off degrades cleanly.
+  netaccel: {
+    enabled: false,
+    port: 53,
+    upstreamDns: ["223.5.5.5", "119.29.29.29"],
+  },
 };
 
 export function generateRemoteToken(): string {

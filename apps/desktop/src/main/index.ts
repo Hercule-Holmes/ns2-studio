@@ -21,6 +21,7 @@ import { TimelineEngine } from "./timeline/engine";
 import { CaptureService } from "./capture/capture-service";
 import { RemoteGateway } from "./remote/gateway";
 import { KeepaliveService } from "./remote/keepalive";
+import { NetaccelService } from "./netaccel/service";
 import { NintendoService } from "./nintendo/service";
 import { NintendoAccountStore, type NintendoCryptor } from "./nintendo/account-store";
 import { safeStorage } from "electron";
@@ -91,29 +92,36 @@ const remote = new RemoteGateway({
   log: (line) => console.log(line),
 });
 
+// S21: netaccel（eShop DNS 优选加速）——独立于远程桥，桌面「网络加速」页管理。
+const netaccel = new NetaccelService({
+  config,
+  storeFile: join(app.getPath("userData"), "netaccel", "nodes.json"),
+  log: (line) => console.log(line),
+});
+
 // B3 (wake-research): keep the NS awake while a remote session is active.
 const keepalive = new KeepaliveService(hub, device, config);
 
-// S19: Nintendo playtime (parental controls API, own account only).
-const nintendoCryptor: NintendoCryptor = {
-  encrypt: (plain) =>
-    safeStorage.isEncryptionAvailable()
-      ? safeStorage.encryptString(plain).toString("base64")
-      : "plain:" + Buffer.from(plain, "utf8").toString("base64"),
-  decrypt: (enc) =>
-    enc.startsWith("plain:")
-      ? Buffer.from(enc.slice(6), "base64").toString("utf8")
-      : safeStorage.decryptString(Buffer.from(enc, "base64")),
-};
-const nintendo = new NintendoService(
-  new NintendoAccountStore(
-    join(app.getPath("userData"), "nintendo", "store.json"),
-    join(app.getPath("userData"), "nintendo", "covers"),
-    nintendoCryptor,
-  ),
-  nintendoCryptor,
-  () => mainWindow,
-);
+// S19: Nintendo playtime (parental controls API, own account only).
+const nintendoCryptor: NintendoCryptor = {
+  encrypt: (plain) =>
+    safeStorage.isEncryptionAvailable()
+      ? safeStorage.encryptString(plain).toString("base64")
+      : "plain:" + Buffer.from(plain, "utf8").toString("base64"),
+  decrypt: (enc) =>
+    enc.startsWith("plain:")
+      ? Buffer.from(enc.slice(6), "base64").toString("utf8")
+      : safeStorage.decryptString(Buffer.from(enc, "base64")),
+};
+const nintendo = new NintendoService(
+  new NintendoAccountStore(
+    join(app.getPath("userData"), "nintendo", "store.json"),
+    join(app.getPath("userData"), "nintendo", "covers"),
+    nintendoCryptor,
+  ),
+  nintendoCryptor,
+  () => mainWindow,
+);
 
 
 // S15: capture-card video needs camera/mic access inside the renderer. The
@@ -164,11 +172,14 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   setupMediaPermissions();
-  registerIpc(device, settings, config, logger, hub, amiibo, recorder, timeline, capture, remote, nintendo, () => mainWindow);
+  registerIpc(device, settings, config, logger, hub, amiibo, recorder, timeline, capture, remote, netaccel, nintendo, () => mainWindow);
   createWindow();
   keepalive.start();
   if (config.get().remote.enabled) {
     void remote.start();
+  }
+  if (config.get().netaccel.enabled) {
+    void netaccel.start();
   }
 
   app.on("activate", () => {
@@ -183,6 +194,7 @@ app.on("window-all-closed", () => {
 app.on("before-quit", () => {
   keepalive.stop();
   void remote.dispose();
+  void netaccel.dispose();
   timeline.dispose();
   capture.dispose();
   device.shutdown();

@@ -9,6 +9,7 @@ import {
   MonitorSmartphone,
   Settings,
   CalendarClock,
+  Zap,
 } from "lucide-vue-next";
 import DevicePage from "./pages/DevicePage.vue";
 import PadPage from "./pages/PadPage.vue";
@@ -17,6 +18,7 @@ import AmiiboPage from "./pages/AmiiboPage.vue";
 import RemotePage from "./pages/RemotePage.vue";
 import SettingsPage from "./pages/SettingsPage.vue";
 import PlaytimePage from "./pages/PlaytimePage.vue";
+import AccelPage from "./pages/AccelPage.vue";
 
 /**
  * Single source of truth for navigation (sidebar is driven from here).
@@ -35,6 +37,7 @@ export const NAV_ITEMS: NavItem[] = [
   { path: "/timeline", title: "时间轴", name: "timeline", icon: SlidersHorizontal },
   { path: "/amiibo", title: "Amiibo", name: "amiibo", icon: ScanLine },
   { path: "/remote", title: "远程", name: "remote", icon: MonitorSmartphone },
+  { path: "/accel", title: "网络加速", name: "accel", icon: Zap },
   { path: "/playtime", title: "游玩记录", name: "playtime", icon: CalendarClock },
   { path: "/settings", title: "设置", name: "settings", icon: Settings },
 ];
@@ -45,6 +48,7 @@ const PAGE_COMPONENTS: Record<string, unknown> = {
   timeline: TimelinePage,
   amiibo: AmiiboPage,
   remote: RemotePage,
+  accel: AccelPage,
   playtime: PlaytimePage,
   settings: SettingsPage,
 };

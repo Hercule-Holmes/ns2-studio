@@ -3,6 +3,7 @@ import type { IpcRendererEvent } from "electron";
 import type { PadReport } from "@ns2-studio/pad-types";
 import type { RecordingSource } from "@ns2-studio/timeline-model";
 import {
+  AccelChannels,
   AmiiboChannels,
   AppInfoChannels,
   CaptureChannels,
@@ -19,6 +20,8 @@ import {
   TimelineChannels,
 } from "../shared/channels";
 import type {
+  AccelProgress,
+  AccelStatus,
   AmiiboCapabilities,
   AmiiboProgress,
   AppConfig,
@@ -182,6 +185,18 @@ const api: RendererApi = {
       ipcRenderer.invoke(RemoteChannels.signal, payload),
     onSignal: (cb: (msg: RemoteSignalPayload) => void) =>
       subscribe<RemoteSignalPayload>(RemoteChannels.signal, cb),
+  },
+  netaccel: {
+    getStatus: (): Promise<AccelStatus> => ipcRenderer.invoke(AccelChannels.getStatus),
+    setEnabled: (enabled: boolean): Promise<AccelStatus> =>
+      ipcRenderer.invoke(AccelChannels.setEnabled, enabled),
+    start: (): Promise<AccelStatus> => ipcRenderer.invoke(AccelChannels.start),
+    stop: (): Promise<AccelStatus> => ipcRenderer.invoke(AccelChannels.stop),
+    runSpeedtest: (): Promise<AccelStatus> => ipcRenderer.invoke(AccelChannels.runSpeedtest),
+    onStateChanged: (cb: (status: AccelStatus) => void) =>
+      subscribe<AccelStatus>(AccelChannels.stateChanged, cb),
+    onProgress: (cb: (p: AccelProgress) => void) =>
+      subscribe<AccelProgress>(AccelChannels.progress, cb),
   },
 };
 

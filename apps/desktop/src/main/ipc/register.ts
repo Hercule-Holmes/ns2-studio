@@ -4,6 +4,7 @@ import type { PadReport } from "@ns2-studio/pad-types";
 import type { CompileResult, Project } from "@ns2-studio/timeline-model";
 import type { RecordingSource } from "@ns2-studio/timeline-model";
 import {
+  AccelChannels,
   AmiiboChannels,
   NintendoChannels,
   AppInfoChannels,
@@ -21,6 +22,8 @@ import {
 } from "../../shared/channels";
 import type { NintendoService } from "../nintendo/service";
 import type {
+  AccelProgress,
+  AccelStatus,
   AmiiboCapabilities,
   NintendoSyncProgress,
   AmiiboProgress,
@@ -46,6 +49,7 @@ import type { Recorder } from "../recorder/recorder";
 import type { TimelineEngine } from "../timeline/engine";
 import type { CaptureService } from "../capture/capture-service";
 import type { RemoteGateway } from "../remote/gateway";
+import type { NetaccelService } from "../netaccel/service";
 import { listSerialPorts } from "../device/serial-factory";
 
 const MAX_LOG_LINES = 500;
@@ -66,6 +70,7 @@ export function registerIpc(
   timeline: TimelineEngine,
   capture: CaptureService,
   remote: RemoteGateway,
+  netaccel: NetaccelService,
   nintendo: NintendoService,
   getWindow: () => BrowserWindow | null,
 ): () => void {
@@ -122,6 +127,13 @@ export function registerIpc(
     getWindow()?.webContents.send(RemoteChannels.signal, msg);
   };
 
+  const onAccelStateChanged = (status: AccelStatus) => {
+    getWindow()?.webContents.send(AccelChannels.stateChanged, status);
+  };
+  const onAccelProgress = (p: AccelProgress) => {
+    getWindow()?.webContents.send(AccelChannels.progress, p);
+  };
+
   device.on("log", pushLog);
   device.on("stateChanged", onStateChanged);
   hub.on("stateChanged", onHubStateChanged);
@@ -135,6 +147,8 @@ export function registerIpc(
   capture.on("log", pushLog);
   const offRemoteStatus = remote.onStatus(onRemoteStatusChanged);
   const offRemoteSignal = remote.onSignal(onRemoteSignal);
+  const offAccelState = netaccel.on("stateChanged", onAccelStateChanged);
+  const offAccelProgress = netaccel.on("progress", onAccelProgress);
 
   ipcMain.handle(DeviceChannels.listPorts, () => listSerialPorts());
   ipcMain.handle(
@@ -364,6 +378,14 @@ export function registerIpc(
     remote.sendSignalToClient(payload);
   });
 
+  ipcMain.handle(AccelChannels.getStatus, () => netaccel.getStatus());
+  ipcMain.handle(AccelChannels.setEnabled, (_e, enabled: boolean) =>
+    netaccel.setEnabled(enabled === true),
+  );
+  ipcMain.handle(AccelChannels.start, () => netaccel.start());
+  ipcMain.handle(AccelChannels.stop, () => netaccel.stop());
+  ipcMain.handle(AccelChannels.runSpeedtest, () => netaccel.runSpeedtest());
+
   const onNintendoProgress = (p: NintendoSyncProgress) => {
     getWindow()?.webContents.send(NintendoChannels.syncProgress, p);
   };
@@ -400,6 +422,8 @@ export function registerIpc(
     capture.off("log", pushLog);
     offRemoteStatus();
     offRemoteSignal();
+    offAccelState();
+    offAccelProgress();
     nintendo.off("syncProgress", onNintendoProgress);
     nintendo.off("changed", onNintendoChanged);
   };
