@@ -43,6 +43,12 @@
     "appId": "com.ns2studio.desktop",
     "productName": "NS2 Studio",
     "npmRebuild": false,
+    "protocols": [
+      {
+        "name": "Nintendo Account Auth",
+        "schemes": ["npf54789befb391a838", "npf71b963c1b7b6d119"]
+      }
+    ],
     "directories": {
       "output": "release"
     },

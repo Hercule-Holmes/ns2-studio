@@ -1,4 +1,4 @@
-import { join } from "node:path";
+﻿import { join, resolve } from "node:path";
 import { app, BrowserWindow, session } from "electron";
 
 // S15: LAN WebRTC — mDNS-obfuscated ICE candidates (default on) can be
@@ -7,6 +7,10 @@ app.commandLine.appendSwitch(
   "disable-features",
   "WebRtcHideLocalIpsWithMdns",
 );
+// 本机代理客户端（mihomo 等）会设置系统代理；electron 跟随系统代理会把
+// dev 页面加载和所有 API 请求都塞进代理隧道（localhost 也不例外），
+// 导致窗口空白/请求挂起。本应用所有流量都应直连，显式绕过系统代理。
+app.commandLine.appendSwitch("proxy-server", "direct://");
 import { DeviceService } from "./device/device-service";
 import { createSerialLayer } from "./device/serial-factory";
 import { SettingsStore } from "./config/store";
@@ -23,6 +27,7 @@ import { RemoteGateway } from "./remote/gateway";
 import { KeepaliveService } from "./remote/keepalive";
 import { NetaccelService } from "./netaccel/service";
 import { NintendoService } from "./nintendo/service";
+import { REDIRECT_SCHEME } from "./nintendo/oauth";
 import { NintendoAccountStore, type NintendoCryptor } from "./nintendo/account-store";
 import { safeStorage } from "electron";
 import { registerIpc } from "./ipc/register";
@@ -92,10 +97,9 @@ const remote = new RemoteGateway({
   log: (line) => console.log(line),
 });
 
-// S21: netaccel（eShop DNS 优选加速）——独立于远程桥，桌面「网络加速」页管理。
+// S21: netaccel（eShop 下载转发代理）——独立于远程桥，桌面「网络加速」页管理。
 const netaccel = new NetaccelService({
   config,
-  storeFile: join(app.getPath("userData"), "netaccel", "nodes.json"),
   log: (line) => console.log(line),
 });
 
@@ -123,6 +127,17 @@ const nintendo = new NintendoService(
   () => mainWindow,
 );
 
+// S19: system-browser login — the app registers as the handler of the
+// Switch auth scheme so the default browser can hand the OAuth result back.
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on("second-instance", (_e, argv) => {
+    const url = argv.find((a) => a.startsWith(REDIRECT_SCHEME));
+    if (url) nintendo.handleDeepLink(url);
+  });
+}
 
 // S15: capture-card video needs camera/mic access inside the renderer. The
 // app has no untrusted content (contextIsolation + no remote navigation), so
@@ -164,13 +179,16 @@ function createWindow(): void {
   });
 
   if (process.env.ELECTRON_RENDERER_URL) {
-    mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
+    // 127.0.0.1 instead of localhost: avoids DNS/TUN resolution quirks that
+    // can stall the renderer load when a proxy TUN adapter is active.
+    mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL.replace("//localhost", "//127.0.0.1"));
   } else {
     mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
   }
 }
 
 app.whenReady().then(() => {
+  if (!gotLock) return;
   setupMediaPermissions();
   registerIpc(device, settings, config, logger, hub, amiibo, recorder, timeline, capture, remote, netaccel, nintendo, () => mainWindow);
   createWindow();
@@ -181,6 +199,19 @@ app.whenReady().then(() => {
   if (config.get().netaccel.enabled) {
     void netaccel.start();
   }
+
+  // S19: register the Switch auth scheme (dev mode points the handler at
+  // electron + this entry); packaged builds get it from build.protocols.
+  if (app.isPackaged) {
+    app.setAsDefaultProtocolClient(REDIRECT_SCHEME);
+  } else {
+    app.setAsDefaultProtocolClient(REDIRECT_SCHEME, process.execPath, [
+      resolve(process.argv[1] ?? "."),
+    ]);
+  }
+  // Deep link that cold-started the app: nothing is pending, drop silently.
+  const coldUrl = process.argv.find((a) => a.startsWith(REDIRECT_SCHEME));
+  if (coldUrl) nintendo.handleDeepLink(coldUrl);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

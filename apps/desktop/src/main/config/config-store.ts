@@ -22,8 +22,8 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
   // the PC, secondary DNS stays a public resolver so PC-off degrades cleanly.
   netaccel: {
     enabled: false,
-    port: 53,
-    upstreamDns: ["223.5.5.5", "119.29.29.29"],
+    proxyPort: 8899,
+    resolvers: ["223.5.5.5", "119.29.29.29"],
   },
 };
 

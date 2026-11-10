@@ -112,15 +112,10 @@ export interface AppConfig {
   /** eShop DNS 优选加速 (S21, sessions/S21-netaccel-dns.md). */
   netaccel: {
     enabled: boolean;
-    /** UDP port of the local DNS server. NS2 points its primary DNS here. */
-    port: number;
-    /** Upstream resolvers for non-accelerated names, tried round-robin. */
-    upstreamDns: string[];
-    /**
-     * Domain override list; omitted/empty = built-in Nintendo CDN set
-     * (accel-domains.ts).
-     */
-    domains?: string[];
+    /** TCP port of the LAN download proxy. NS2 sets this as its proxy. */
+    proxyPort: number;
+    /** Public UDP resolvers queried (in parallel) for CDN candidates. */
+    resolvers: string[];
   };
 }
 
@@ -495,67 +490,38 @@ export interface RemoteApi {
 // netaccel — eShop DNS 优选加速 (S21, sessions/S21-netaccel-dns.md)
 // ---------------------------------------------------------------------------
 
-/** One CDN edge node measured during a speedtest. */
-export interface AccelNodeRecord {
-  ip: string;
-  /** FQDN this candidate was measured against (SNI of the TLS check). */
-  domain: string;
-  /** Median TCP-connect(443) ms; null when every attempt failed. */
-  rttMs: number | null;
-  /** Passed the TLS handshake + certificate check for `domain`. */
-  verified: boolean;
-}
-
-/** Per-domain acceleration table entry. */
-export interface AccelDomainTable {
-  domain: string;
-  /** Human label, e.g. "eShop 游戏下载". */
-  label: string;
-  /** IP the DNS server answers with; null = forward upstream (no accel). */
-  best: string | null;
-  /** Ranked candidates from the last speedtest (empty before first run). */
-  results: AccelNodeRecord[];
-}
+// ---------------------------------------------------------------------------
+// netaccel — eShop 下载转发代理 (S21 v2, sessions/S21-netaccel-proxy.md)
+// ---------------------------------------------------------------------------
 
 export type AccelServerState = "stopped" | "starting" | "running" | "error";
-export type AccelTestState = "idle" | "running";
 
 export interface AccelStatus {
   serverState: AccelServerState;
   enabled: boolean;
+  /** TCP port of the LAN download proxy; NS2 sets this as its proxy. */
   port: number;
-  testState: AccelTestState;
-  /** LAN IPv4 addresses the NS2 can point its primary DNS at. */
-  ns2DnsIps: string[];
-  upstreamDns: string[];
-  domains: AccelDomainTable[];
-  /** epoch ms of the last completed speedtest; null = never ran. */
-  lastRunAt: number | null;
-  /** DNS counters since server start (snapshotted on demand). */
-  queriesAnswered: number;
-  queriesForwarded: number;
+  /** LAN IPv4 addresses the NS2 can point its proxy server at. */
+  lanIps: string[];
+  /** Whitelisted host suffixes (Nintendo-owned). */
+  whitelist: string[];
+  /** Currently open tunnels. */
+  connections: number;
+  /** Download bytes served through the proxy since start. */
+  totalBytes: number;
+  /** Measured per second (rolling). */
+  bytesPerSec: number;
   error?: string;
 }
 
-export interface AccelProgress {
-  phase: "collect" | "probe" | "verify" | "done" | "error";
-  done: number;
-  total: number;
-  message?: string;
-}
-
 /**
- * Desktop-side management API for the netaccel DNS server + speedtest
- * scheduler (S21). Status is also mirrored to the phone client over the
- * remote bridge WS (`accelState` / `speedtestProgress`).
+ * Desktop-side management API for the netaccel LAN download proxy (S21 v2).
+ * The phone client mirrors `accelState` over the remote bridge WS.
  */
 export interface AccelApi {
   getStatus(): Promise<AccelStatus>;
   setEnabled(enabled: boolean): Promise<AccelStatus>;
   start(): Promise<AccelStatus>;
   stop(): Promise<AccelStatus>;
-  /** Run one full collect → probe → verify pass; guard reentrant. */
-  runSpeedtest(): Promise<AccelStatus>;
   onStateChanged(cb: (status: AccelStatus) => void): () => void;
-  onProgress(cb: (p: AccelProgress) => void): () => void;
 }

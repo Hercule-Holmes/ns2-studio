@@ -1,18 +1,36 @@
 /**
- * S19: Nintendo Account OAuth helpers (pure logic, no Electron imports so the
- * unit tests can import this module directly). Flow per
- * ZekeSnider/NintendoSwitchRestAPI: browser login with PKCE →
- * session_token_code → session_token.
+ * S19: Nintendo Account OAuth helpers for the Parental Controls **plus** app
+ * (codename "moon", client `54789befb391a838`) — playtime data lives behind
+ * THIS client; the old 71b963c1b7b6d119 client has no moon API access.
+ * Params mirror nxapi src/api/na.ts generateAuthData() / src/api/moon.ts
+ * (community known-good). Pure logic, no Electron imports.
  */
 
-const CLIENT_ID = "71b963c1b7b6d119"; // parental controls app
-const REDIRECT_URI = "npf71b963c1b7b6d119://auth";
+const CLIENT_ID = "54789befb391a838"; // みまもり plus / ZNMA
+const REDIRECT_URI = "npf54789befb391a838://auth";
 const AUTHORIZE_URL = "https://accounts.nintendo.com/connect/1.0.0/authorize";
 const SESSION_TOKEN_URL =
   "https://accounts.nintendo.com/connect/1.0.0/api/session_token";
-const API_TOKEN_URL = "https://accounts.nintendo.com/connect/1.0.0/api/token";
 export const REDIRECT_PREFIX = REDIRECT_URI;
-export const USER_AGENT = "ns2-studio/1.0 (Nintendo playtime integration)";
+export const REDIRECT_SCHEME = "npf54789befb391a838";
+export const CLIENT_ID_EXPORT = CLIENT_ID;
+
+/** Scopes required by the moon API (nxapi src/api/moon.ts na_client_settings). */
+const MOON_SCOPE = [
+  "openid",
+  "user",
+  "user.mii",
+  "moonUser:administration",
+  "moonDevice:create",
+  "moonOwnedDevice:administration",
+  "moonParentalControlSetting",
+  "moonParentalControlSetting:update",
+  "moonParentalControlSettingState",
+  "moonPairingState",
+  "moonSmartDevice:administration",
+  "moonDailySummary",
+  "moonMonthlySummary",
+].join(" ");
 
 export interface PkcePair {
   verifier: string;
@@ -40,20 +58,23 @@ function random(n: number): Buffer {
 }
 
 export function buildLoginUrl(pkce: PkcePair): string {
-  const params = new URLSearchParams({
-    client_id: CLIENT_ID,
-    redirect_uri: REDIRECT_URI,
-    response_type: "session_token_code",
-    scope:
-      "user.user.birthday user.user.info user.link.wii user.link.nn id[all] user.mii user.support_info",
-    session_token_code_challenge: pkce.challenge,
-    session_token_code_challenge_method: "S256",
-    state: pkce.state,
-  });
-  return `${AUTHORIZE_URL}?${params.toString()}`;
+  // Params mirror nxapi generateAuthData(): theme=login_form, scope list as
+  // above. Hand-built query keeps spaces %20-encoded.
+  const params: Array<[string, string]> = [
+    ["client_id", CLIENT_ID],
+    ["redirect_uri", REDIRECT_URI],
+    ["response_type", "session_token_code"],
+    ["scope", MOON_SCOPE],
+    ["session_token_code_challenge", pkce.challenge],
+    ["session_token_code_challenge_method", "S256"],
+    ["state", pkce.state],
+    ["theme", "login_form"],
+  ];
+  const qs = params.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
+  return `${AUTHORIZE_URL}?${qs}`;
 }
 
-/** Parse the `npf…://auth#session_token_code=…&state=…` redirect fragment. */
+/** Parse the `npf54789befb391a838://auth#session_token_code=…&state=…` fragment. */
 export function parseRedirect(url: string, expectedState: string): {
   code: string;
   state: string;
@@ -75,20 +96,13 @@ export function parseRedirect(url: string, expectedState: string): {
 export function sessionTokenRequestBody(
   code: string,
   verifier: string,
+  clientId: string = CLIENT_ID,
 ): URLSearchParams {
   return new URLSearchParams({
-    client_id: CLIENT_ID,
+    client_id: clientId,
     session_token_code: code,
     session_token_code_verifier: verifier,
   });
 }
 
-export function apiTokenRequestBody(sessionToken: string): URLSearchParams {
-  return new URLSearchParams({
-    client_id: CLIENT_ID,
-    grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-    session_token: sessionToken,
-  });
-}
-
-export { SESSION_TOKEN_URL, API_TOKEN_URL, CLIENT_ID };
+export { CLIENT_ID as ZNMA_CLIENT_ID, SESSION_TOKEN_URL };

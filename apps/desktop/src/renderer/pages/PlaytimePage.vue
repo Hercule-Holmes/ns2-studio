@@ -152,6 +152,11 @@ onUnmounted(() => {
         </AppButton>
       </template>
 
+      <p v-if="busyAccount === 'add'" class="login-hint">
+        已在默认浏览器打开 Nintendo 登录页：完成登录后请在弹窗中选择
+        「打开 NS2 Studio」，账号会自动出现在这里（5 分钟内有效）。
+      </p>
+
       <EmptyState
         v-if="accounts.length === 0"
         :icon="Gamepad2"
@@ -431,5 +436,12 @@ onUnmounted(() => {
   to {
     transform: rotate(360deg);
   }
+}
+
+.login-hint {
+  color: var(--dim, #8b94a3);
+  font-size: 12px;
+  margin: 0 0 8px;
+  line-height: 1.6;
 }
 </style>

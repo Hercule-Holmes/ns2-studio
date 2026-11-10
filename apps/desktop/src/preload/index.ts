@@ -20,7 +20,6 @@ import {
   TimelineChannels,
 } from "../shared/channels";
 import type {
-  AccelProgress,
   AccelStatus,
   AmiiboCapabilities,
   AmiiboProgress,
@@ -192,11 +191,8 @@ const api: RendererApi = {
       ipcRenderer.invoke(AccelChannels.setEnabled, enabled),
     start: (): Promise<AccelStatus> => ipcRenderer.invoke(AccelChannels.start),
     stop: (): Promise<AccelStatus> => ipcRenderer.invoke(AccelChannels.stop),
-    runSpeedtest: (): Promise<AccelStatus> => ipcRenderer.invoke(AccelChannels.runSpeedtest),
     onStateChanged: (cb: (status: AccelStatus) => void) =>
       subscribe<AccelStatus>(AccelChannels.stateChanged, cb),
-    onProgress: (cb: (p: AccelProgress) => void) =>
-      subscribe<AccelProgress>(AccelChannels.progress, cb),
   },
 };
 

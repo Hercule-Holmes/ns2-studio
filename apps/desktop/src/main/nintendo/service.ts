@@ -3,15 +3,16 @@
  * multi-account store. Sync is on-demand (manual button); per-account errors
  * are isolated and surfaced via `syncProgress`.
  */
-import { BrowserWindow } from "electron";
-import { openNintendoLogin, exchangeApiTokens } from "./auth";
-import { ParentalClient, fetchApiTokens, fetchUserInfo, mapDailySummary } from "./api-client";
+import { shell } from "electron";
+import { completeLogin, createPendingLogin } from "./auth";
+import { ParentalClient as MoonClient, fetchMoonAuth, mapMoonDailySummary } from "./api-client";
 import {
   NintendoAccountStore,
   type NintendoCryptor,
   type NintendoStoredDaily,
 } from "./account-store";
 import { NintendoError } from "./errors";
+import { REDIRECT_PREFIX } from "./oauth";
 import { mergeDaily } from "./merge";
 import type {
   NintendoAccountView,
@@ -47,30 +48,78 @@ export class NintendoService extends TypedEmitter<{
   constructor(
     private store: NintendoAccountStore,
     private cryptor: NintendoCryptor,
-    private getWindow: () => BrowserWindow | null,
+    private _getWindow: () => unknown,
   ) {
     super();
   }
+
+  private deepLinkWaiter: ((url: string) => void) | null = null;
 
   listAccounts(): NintendoAccountView[] {
     return this.store.listAccounts();
   }
 
-  /** Opens the Nintendo Account login window; persists the new account. */
+  /**
+   * Main calls this when the OS relaunches the app with the Switch auth
+   * deep link (browser login finished). Returns true when a login was
+   * actually pending (i.e. the URL was consumed).
+   */
+  handleDeepLink(url: string): boolean {
+    if (!url.startsWith(REDIRECT_PREFIX)) return false;
+    const waiter = this.deepLinkWaiter;
+    this.deepLinkWaiter = null;
+    waiter?.(url);
+    return true;
+  }
+
+  private waitForDeepLink(timeoutMs = 5 * 60_000): Promise<string> {
+    return new Promise((resolve, reject) => {
+      this.deepLinkWaiter = (url) => {
+        clearTimeout(timer);
+        resolve(url);
+      };
+      const timer = setTimeout(() => {
+        this.deepLinkWaiter = null;
+        reject(
+          new NintendoError(
+            "NINTENDO_LOGIN_CANCELLED",
+            "等待浏览器授权超时，请重新点击添加账号",
+          ),
+        );
+      }, timeoutMs);
+    });
+  }
+
+  /**
+   * Opens the system default browser for Nintendo login (saved passwords /
+   * passkeys / 2FA); after login the OS relaunches the app with the auth
+   * deep link, which resolves this flow and persists the account.
+   */
   async addAccount(): Promise<NintendoAccountView> {
-    const login = await openNintendoLogin(this.getWindow());
-    const tokens = await exchangeApiTokens(login.sessionToken);
-    const me = await fetchUserInfo(tokens.idToken);
+    const pending = createPendingLogin();
+    console.log(`[nintendo] login url: ${pending.url}`);
+    try {
+      await shell.openExternal(pending.url);
+    } catch (err) {
+      throw new NintendoError(
+        "NINTENDO_LOGIN_CANCELLED",
+        `无法打开默认浏览器: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+    const redirectUrl = await this.waitForDeepLink();
+    const login = await completeLogin(pending, redirectUrl);
+    const auth = await fetchMoonAuth(login.sessionToken);
+    const addedAt = new Date().toISOString();
     this.store.putAccount({
-      sub: me.sub,
-      nickname: me.nickname,
+      sub: auth.naId,
+      nickname: auth.nickname,
       sessionTokenEnc: this.cryptor.encrypt(login.sessionToken),
-      addedAt: new Date().toISOString(),
+      addedAt,
       lastSyncAt: null,
       cursor: null,
     });
     this.emit("changed");
-    return { sub: me.sub, nickname: me.nickname, addedAt: new Date().toISOString(), lastSyncAt: null };
+    return { sub: auth.naId, nickname: auth.nickname, addedAt, lastSyncAt: null };
   }
 
   removeAccount(sub: string): void {
@@ -88,6 +137,7 @@ export class NintendoService extends TypedEmitter<{
         await this.syncAccount(target);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
+        console.log(`[nintendo] sync error (${target}): ${message}`);
         this.emit("syncProgress", { sub: target, phase: "error", message });
       }
     }
@@ -101,23 +151,24 @@ export class NintendoService extends TypedEmitter<{
       return;
     }
     this.emit("syncProgress", { sub, phase: "token" });
-    const tokens = await fetchApiTokens(sessionToken);
-    const client = await ParentalClient.login(tokens.idToken);
+    console.log(`[nintendo] sync start (${sub})`);
+    const auth = await fetchMoonAuth(sessionToken);
+    const client = MoonClient.create(auth.idToken, auth.naId);
 
     this.emit("syncProgress", { sub, phase: "fetch" });
-    let cursor = this.store.getCursor(sub);
-    let guard = 0;
     const collected: NintendoStoredDaily[] = [];
-    let latestUpdatedAt = this.store.getCursor(sub) ?? "";
-    for (;;) {
-      const page = await client.dailySummaries(cursor ?? undefined);
-      for (const raw of page.dailySummaries ?? []) {
-        collected.push(mapDailySummary(sub, raw) as unknown as NintendoStoredDaily);
-        if ((raw.updatedAt ?? "") > latestUpdatedAt) latestUpdatedAt = raw.updatedAt ?? latestUpdatedAt;
+    let latestUpdatedAt = "";
+    // ZNMA v2 API: playtime is per linked console; fetchDailySummaries
+    // returns the whole available window and we upsert by date.
+    for (const device of await client.getOwnedDevices()) {
+      const summaries = await client.getDailySummaries(device.deviceId);
+      for (const raw of summaries) {
+        collected.push(
+          mapMoonDailySummary(sub, device.deviceId, raw) as unknown as NintendoStoredDaily,
+        );
+        const updatedAt = String(raw.updatedAt ?? "");
+        if (updatedAt > latestUpdatedAt) latestUpdatedAt = updatedAt;
       }
-      if (!page.updatedAt || page.updatedAt === cursor) break; // exhausted
-      cursor = page.updatedAt;
-      if (++guard > 400) break; // safety bound
     }
     this.store.appendDaily(sub, collected);
     this.store.setSyncMeta(sub, latestUpdatedAt || null, new Date().toISOString());

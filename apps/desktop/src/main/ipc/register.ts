@@ -22,7 +22,6 @@ import {
 } from "../../shared/channels";
 import type { NintendoService } from "../nintendo/service";
 import type {
-  AccelProgress,
   AccelStatus,
   AmiiboCapabilities,
   NintendoSyncProgress,
@@ -130,9 +129,6 @@ export function registerIpc(
   const onAccelStateChanged = (status: AccelStatus) => {
     getWindow()?.webContents.send(AccelChannels.stateChanged, status);
   };
-  const onAccelProgress = (p: AccelProgress) => {
-    getWindow()?.webContents.send(AccelChannels.progress, p);
-  };
 
   device.on("log", pushLog);
   device.on("stateChanged", onStateChanged);
@@ -147,8 +143,7 @@ export function registerIpc(
   capture.on("log", pushLog);
   const offRemoteStatus = remote.onStatus(onRemoteStatusChanged);
   const offRemoteSignal = remote.onSignal(onRemoteSignal);
-  const offAccelState = netaccel.on("stateChanged", onAccelStateChanged);
-  const offAccelProgress = netaccel.on("progress", onAccelProgress);
+const offAccelState = netaccel.on("stateChanged", onAccelStateChanged);
 
   ipcMain.handle(DeviceChannels.listPorts, () => listSerialPorts());
   ipcMain.handle(
@@ -384,7 +379,6 @@ export function registerIpc(
   );
   ipcMain.handle(AccelChannels.start, () => netaccel.start());
   ipcMain.handle(AccelChannels.stop, () => netaccel.stop());
-  ipcMain.handle(AccelChannels.runSpeedtest, () => netaccel.runSpeedtest());
 
   const onNintendoProgress = (p: NintendoSyncProgress) => {
     getWindow()?.webContents.send(NintendoChannels.syncProgress, p);
@@ -422,8 +416,7 @@ export function registerIpc(
     capture.off("log", pushLog);
     offRemoteStatus();
     offRemoteSignal();
-    offAccelState();
-    offAccelProgress();
+  offAccelState();
     nintendo.off("syncProgress", onNintendoProgress);
     nintendo.off("changed", onNintendoChanged);
   };

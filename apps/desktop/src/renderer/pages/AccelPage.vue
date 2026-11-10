@@ -1,25 +1,22 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import { Power, RefreshCw, Gauge } from "lucide-vue-next";
-import type { AccelProgress, AccelStatus } from "../../shared/ipc";
+import { Power } from "lucide-vue-next";
+import type { AccelStatus } from "../../shared/ipc";
 import AppCard from "../components/ui/AppCard.vue";
 import AppButton from "../components/ui/AppButton.vue";
-import EmptyState from "../components/ui/EmptyState.vue";
 import SectionHeader from "../components/ui/SectionHeader.vue";
 
 const status = ref<AccelStatus | null>(null);
-const progressLine = ref<string | null>(null);
 const busy = ref(false);
 
 const running = computed(() => status.value?.serverState === "running");
-const testing = computed(() => status.value?.testState === "running");
 
 const serverLine = computed(() => {
   const s = status.value;
   if (!s) return "";
   switch (s.serverState) {
     case "running":
-      return `运行中 · 端口 ${s.port}`;
+      return `运行中 · 代理端口 ${s.port}`;
     case "starting":
       return "启动中…";
     case "error":
@@ -29,19 +26,20 @@ const serverLine = computed(() => {
   }
 });
 
-const PHASE_LABEL: Record<AccelProgress["phase"], string> = {
-  collect: "收集候选节点",
-  probe: "探测节点延迟",
-  verify: "TLS 验证",
-  done: "完成",
-  error: "出错",
-};
+function fmtSpeed(bytesPerSec: number): string {
+  if (bytesPerSec <= 0) return "—";
+  const kb = bytesPerSec / 1024;
+  if (kb < 1024) return `${kb.toFixed(0)} KB/s`;
+  return `${(kb / 1024).toFixed(1)} MB/s`;
+}
 
-function renderProgress(p: AccelProgress): void {
-  progressLine.value =
-    p.phase === "done" || p.phase === "error"
-      ? `${PHASE_LABEL[p.phase]}${p.message ? `：${p.message}` : ""}`
-      : `${PHASE_LABEL[p.phase]} ${p.done}/${p.total}`;
+function fmtBytes(total: number): string {
+  if (total < 1024) return `${total} B`;
+  const kb = total / 1024;
+  if (kb < 1024) return `${kb.toFixed(0)} KB`;
+  const mb = kb / 1024;
+  if (mb < 1024) return `${mb.toFixed(1)} MB`;
+  return `${(mb / 1024).toFixed(2)} GB`;
 }
 
 async function refresh(): Promise<void> {
@@ -58,16 +56,6 @@ async function toggleEnabled(): Promise<void> {
   }
 }
 
-async function runSpeedtest(): Promise<void> {
-  busy.value = true;
-  progressLine.value = "测速中…";
-  try {
-    status.value = await window.api.netaccel.runSpeedtest();
-  } finally {
-    busy.value = false;
-  }
-}
-
 const disposers: Array<() => void> = [];
 
 onMounted(async () => {
@@ -75,7 +63,6 @@ onMounted(async () => {
     window.api.netaccel.onStateChanged((s) => {
       status.value = s;
     }),
-    window.api.netaccel.onProgress(renderProgress),
   );
   await refresh();
 });
@@ -83,33 +70,26 @@ onMounted(async () => {
 onUnmounted(() => {
   for (const dispose of disposers) dispose();
 });
-
-function fmtTime(ts: number | null): string {
-  return ts === null ? "从未" : new Date(ts).toLocaleTimeString();
-}
 </script>
 
 <template>
   <div class="accel-page">
     <h1>网络加速</h1>
     <p class="page-hint">
-      eShop DNS 优选：PC 测一圈 Nintendo CDN 节点延迟，NS2 的 DNS 指到本机后自动从最快节点下载。
-      <span class="badge">只加速内容下载域名，不碰登录与联机</span>
+      在本机运行一个下载转发代理：NS2 的 eShop 下载流量经本机转发，
+      自动从延迟最低的 Akamai 边缘节点下载（TLS 端到端，代理不碰证书）。
+      <span class="badge">只影响下载与商店，不影响联机对战</span>
     </p>
 
-    <AppCard title="DNS 优选服务">
+    <AppCard title="下载转发代理">
       <template #actions>
         <AppButton
           variant="primary"
           :disabled="busy"
-          @click="runSpeedtest"
+          @click="toggleEnabled"
         >
-          <Gauge :size="15" />
-          {{ status?.lastRunAt ? "重新测速" : "开始测速" }}
-        </AppButton>
-        <AppButton :disabled="busy" @click="toggleEnabled">
           <Power :size="15" />
-          {{ running ? "停止服务" : "启动服务" }}
+          {{ running ? "停止代理" : "启动代理" }}
         </AppButton>
       </template>
 
@@ -121,51 +101,51 @@ function fmtTime(ts: number | null): string {
           </span>
         </div>
         <div class="status-item">
-          <span class="label">上次测速</span>
-          <span>{{ fmtTime(status?.lastRunAt ?? null) }}</span>
+          <span class="label">活动连接</span>
+          <span>{{ status?.connections ?? 0 }}</span>
         </div>
         <div class="status-item">
-          <span class="label">加速应答 / 转发</span>
-          <span>
-            {{ status?.queriesAnswered ?? 0 }} / {{ status?.queriesForwarded ?? 0 }}
-          </span>
+          <span class="label">累计流量</span>
+          <span>{{ fmtBytes(status?.totalBytes ?? 0) }}</span>
         </div>
-      </div>
-
-      <p v-if="progressLine" class="hint progress-line">{{ progressLine }}</p>
-
-      <div v-if="running && status?.ns2DnsIps.length" class="ns2-hint">
-        <b>NS2 一次性配置</b>：设置 → 互联网 → 已登录网络 → 更改设置 → DNS 设置 → 手动
-        <div class="dns-row">
-          主 DNS <code>{{ status.ns2DnsIps[0] }}</code>
-          <span class="dim">副 DNS（PC 关机时兜底）</span>
-          <code>{{ status.upstreamDns[0] }}</code>
+        <div class="status-item">
+          <span class="label">当前速度</span>
+          <span>{{ fmtSpeed(status?.bytesPerSec ?? 0) }}</span>
         </div>
-        <span class="dim">改完退出 eShop 重新进入生效；副 DNS 保证 PC 关机时主机上网不受影响。</span>
       </div>
     </AppCard>
 
-    <AppCard title="节点排名">
-      <EmptyState
-        v-if="(status?.domains.length ?? 0) === 0"
-        :icon="Gauge"
-        title="暂无测速数据"
-        hint="启动服务并完成一轮测速后显示各 CDN 节点延迟"
-      />
-      <div v-for="d in status?.domains ?? []" :key="d.domain" class="domain-block">
-        <SectionHeader :title="d.label" />
-        <div class="domain-line">
-          <code class="domain-name">{{ d.domain }}</code>
-          <span v-if="d.best" class="best">当前使用：{{ d.best }}</span>
-          <span v-else class="dim">未加速（无通过验证的节点）</span>
+    <AppCard title="NS2 设置方法">
+      <p class="hint">
+        NS2 的代理设置指向本机后，eShop 下载会经本机转发，
+        自动挑选延迟最低的 Akamai 边缘节点。游戏联机流量不走代理。
+      </p>
+      <div class="proxy-hint">
+        <b>NS2 一次性配置</b>：设置 → 互联网 → 已登录网络 → 更改设置 →
+        代理服务器 → 手动
+        <div class="dns-row">
+          <span class="dim">服务器</span>
+          <code v-for="ip in status?.lanIps ?? []" :key="ip">{{ ip }}</code>
         </div>
-        <div v-if="d.results.length > 0" class="result-table">
-          <div v-for="r in d.results.slice(0, 8)" :key="r.ip" class="result-row" :class="{ best: r.verified }">
-            <span>{{ r.ip }}</span>
-            <span>{{ r.verified ? "✓ " : "" }}{{ r.rttMs !== null ? r.rttMs + " ms" : "不可达" }}</span>
-          </div>
+        <div class="dns-row">
+          <span class="dim">端口</span>
+          <code>{{ status?.port ?? "—" }}</code>
+          <span class="dim">认证：无</span>
         </div>
       </div>
+      <p class="hint">
+        取消代理时，把 NS2 的代理设置改回「不使用」即可。
+      </p>
+    </AppCard>
+
+    <AppCard title="工作原理">
+      <p class="hint">
+        启动后本机会对 Nintendo CDN 域名做一轮多 DNS 候选采集
+        （阿里 223.5.5.5 / 腾讯 119.29.29.29 并发查询），
+        并对每个候选节点做 TCP 连接测速，连通最快的节点自动排在下载路径最前。
+        NS2 每次通过代理请求下载时都会使用当前最快的节点。
+        下载速度实时显示在上方。
+      </p>
     </AppCard>
   </div>
 </template>
@@ -229,11 +209,7 @@ function fmtTime(ts: number | null): string {
   color: var(--text-dim);
 }
 
-.progress-line {
-  margin: 6px 0;
-}
-
-.ns2-hint {
+.proxy-hint {
   border: 1px solid var(--border);
   border-radius: var(--radius-card, 8px);
   background: var(--surface-raised);
@@ -258,58 +234,10 @@ code {
   font-size: 12px;
 }
 
-.domain-block {
-  margin-top: 10px;
-}
-
-.domain-line {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin: 4px 0 8px;
+.hint {
+  color: var(--text-dim);
   font-size: 12px;
-}
-
-.domain-name {
-  word-break: break-all;
-}
-
-.best {
-  color: var(--ok, #3fb96f);
-  font-weight: 600;
-}
-
-.result-table {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card, 8px);
-  overflow: hidden;
-}
-
-.result-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 6px 12px;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  border-bottom: 1px solid var(--border);
-}
-
-.result-row:last-child {
-  border-bottom: none;
-}
-
-.result-row.best {
-  color: var(--ok, #3fb96f);
-}
-
-.spin {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  margin: 6px 0;
+  line-height: 1.7;
 }
 </style>
