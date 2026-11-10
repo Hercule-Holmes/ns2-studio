@@ -31,8 +31,6 @@ export interface LanProxyConfig {
   allowPrivateCandidates?: boolean;
   /** Max concurrent tunnels; default 32. */
   maxConns?: number;
-  /** Splice idle timeout; default 300s. */
-  idleTimeoutMs?: number;
   /** Injection points for tests. */
   resolveA?: (server: string, name: string, timeoutMs?: number) => Promise<string[]>;
   probeTcp?: (host: string, port: number, timeoutMs?: number) => Promise<number | null>;
@@ -44,18 +42,9 @@ export interface LanProxyStats {
   totalBytes: number;
 }
 
-interface PendingRequest {
-  method: string;
-  host: string;
-  port: number;
-  /** Rewritten bytes to send upstream (CONNECT sends none). */
-  payload: Buffer;
-}
-
 const MAX_HEADER = 16 * 1024;
 const DEFAULT_PORTS = [80, 443];
 const MAX_CONNS = 32;
-const IDLE_MS = 300_000;
 const PROBE_TIMEOUT_MS = 2_000;
 
 function isPrivateIPv4(ip: string): boolean {
@@ -259,7 +248,6 @@ export class LanProxy {
   private readonly roots: string[];
   private readonly lanOnly: boolean;
   private readonly maxConns: number;
-  private readonly idleMs: number;
   private readonly log: (line: string) => void;
   private readonly resolver: CandidateResolver;
   private readonly allowPrivate: boolean;
@@ -276,7 +264,6 @@ export class LanProxy {
     this.roots = config.roots.map((r) => r.toLowerCase());
     this.lanOnly = config.lanOnly ?? true;
     this.maxConns = config.maxConns ?? MAX_CONNS;
-    this.idleMs = config.idleTimeoutMs ?? IDLE_MS;
     this.log = config.log ?? (() => {});
   }
 

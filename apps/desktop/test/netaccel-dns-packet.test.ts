@@ -4,8 +4,6 @@ import {
   decodeMessage,
   encodeName,
   encodeQuery,
-  encodeResponse,
-  ipToBuffer,
 } from "../src/main/netaccel/dns-packet";
 
 describe("dns-packet (S21)", () => {
@@ -18,26 +16,6 @@ describe("dns-packet (S21)", () => {
     expect(msg.questions[0]!.name).toBe("atum.hac.lp1.d4c.nintendo.net");
     expect(msg.questions[0]!.type).toBe(1);
     expect(msg.questions[0]!.klass).toBe(1);
-  });
-
-  it("reuses the raw question bytes when synthesizing an answer", () => {
-    const q = encodeQuery(0xbeef, "example.com");
-    const decoded = decodeMessage(q);
-    const reply = encodeResponse(decoded, [
-      { name: "example.com", type: 1, ttl: 60, ipv4: "1.2.3.4" },
-    ]);
-    const back = decodeMessage(reply);
-    expect(back.id).toBe(0xbeef);
-    expect(back.qr).toBe(true);
-    expect(back.rcode).toBe(0);
-    expect(back.questions[0]!.name).toBe("example.com");
-    expect(back.answers).toHaveLength(1);
-    expect(back.answers[0]!.ipv4).toBe("1.2.3.4");
-    expect(back.answers[0]!.ttl).toBe(60);
-    // question bytes must be byte-identical (copied verbatim)
-    const qBytes = q.subarray(12).toString("hex");
-    const rBytes = reply.subarray(12, 12 + qBytes.length / 2).toString("hex");
-    expect(rBytes).toBe(qBytes);
   });
 
   it("decodes compressed names in answers (pointer into question)", () => {
@@ -55,7 +33,7 @@ describe("dns-packet (S21)", () => {
       Buffer.from([0, 1, 0, 1]),
       Buffer.from([0, 0, 0, 60]), // ttl
       Buffer.from([0, 4]),
-      ipToBuffer("9.8.7.6"),
+      Buffer.from([9, 8, 7, 6]),
     ]);
     const msg = Buffer.concat([header, question, qtail, answer]);
     const parsed = decodeMessage(msg);
@@ -66,14 +44,5 @@ describe("dns-packet (S21)", () => {
   it("rejects malformed packets with PacketError", () => {
     expect(() => decodeMessage(Buffer.alloc(4))).toThrow(PacketError);
     expect(() => encodeName("a..b")).toThrow(PacketError);
-    expect(() => ipToBuffer("1.2.3")).toThrow(PacketError);
-    expect(() => ipToBuffer("1.2.3.999")).toThrow(PacketError);
-  });
-
-  it("synthesizes NXDOMAIN-style rcodes", () => {
-    const q = decodeMessage(encodeQuery(1, "x.test"));
-    const reply = decodeMessage(encodeResponse(q, [], 3));
-    expect(reply.rcode).toBe(3);
-    expect(reply.answers).toHaveLength(0);
   });
 });

@@ -30,7 +30,7 @@ class TypedEmitter<E extends Record<string, (...args: never[]) => void>> {
 }
 
 /** Nintendo-owned host suffixes the proxy is allowed to serve. */
-export const ZNMA_ROOTS = [
+const ZNMA_ROOTS = [
   "nintendo.net",
   "nintendo.com",
   "nintendowifi.net",

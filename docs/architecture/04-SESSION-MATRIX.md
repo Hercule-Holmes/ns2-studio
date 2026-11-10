@@ -26,7 +26,7 @@
 | **S18** | UI 基建：Switch 风格双主题 + ui/ 组件库 + DevicePage 样板 | P1 | — | 桌面-Web | 1d | done |
 | **S19** | 游玩记录数据核心：家长控制 API + 多账号 + 合并 | P1 | — | 主进程 | 1–1.5d | done（非实机验证） |
 | **S20** | 游玩记录页（Switch 风）+ 旧页迁移启动 | P1 | S18, S19 | 桌面-Web | 1d | done（非实机验证） |
-| **S21** | netaccel：eShop DNS 优选加速（v1：DNS 优选 + 桌面管理页） | P2 | — | 主进程 | 1d | in_progress |
+| **S21** | netaccel：eShop 下载转发代理（v2 替代 v1 DNS 劫持，dcecaad） | P2 | — | 主进程 | — | in_progress（工单文档待补） |
 
 \*S1 可与 S0 **并行**；但 **合并发布/真机演示** 必须 S0 通过。S1 单测不依赖硬件。
 
@@ -148,4 +148,4 @@ S6 + S7 + S9 → S10 → S11 → S12
 | S18 | [sessions/S18-ui-foundation.md](../sessions/S18-ui-foundation.md) |
 | S19 | [sessions/S19-playtime.md](../sessions/S19-playtime.md) |
 | S20 | [sessions/S20-playtime-page.md](../sessions/S20-playtime-page.md) |
-| S21 | [sessions/S21-netaccel-dns.md](../sessions/S21-netaccel-dns.md) |
+| S21 | （工单待补：sessions/S21-netaccel-proxy.md） |

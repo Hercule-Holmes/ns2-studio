@@ -109,7 +109,7 @@ export interface AppConfig {
      */
     keepaliveMs: number;
   };
-  /** eShop DNS 优选加速 (S21, sessions/S21-netaccel-dns.md). */
+  /** eShop 下载转发代理 (S21 v2, sessions/S21-netaccel-proxy.md). */
   netaccel: {
     enabled: boolean;
     /** TCP port of the LAN download proxy. NS2 sets this as its proxy. */
@@ -487,10 +487,6 @@ export interface RemoteApi {
 }
 
 // ---------------------------------------------------------------------------
-// netaccel — eShop DNS 优选加速 (S21, sessions/S21-netaccel-dns.md)
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
 // netaccel — eShop 下载转发代理 (S21 v2, sessions/S21-netaccel-proxy.md)
 // ---------------------------------------------------------------------------
 
@@ -516,7 +512,6 @@ export interface AccelStatus {
 
 /**
  * Desktop-side management API for the netaccel LAN download proxy (S21 v2).
- * The phone client mirrors `accelState` over the remote bridge WS.
  */
 export interface AccelApi {
   getStatus(): Promise<AccelStatus>;

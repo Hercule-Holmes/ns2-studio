@@ -5,8 +5,8 @@
  * Pure functions; no sockets, fully unit-testable.
  */
 
-export const DNS_TYPE_A = 1;
-export const DNS_CLASS_IN = 1;
+const DNS_TYPE_A = 1;
+const DNS_CLASS_IN = 1;
 
 export class PacketError extends Error {
   constructor(message: string) {
@@ -39,7 +39,7 @@ export function encodeName(name: string): Buffer {
  * Returns the FQDN (without trailing dot) and the offset of the first byte
  * *after* the name in the original stream (jump targets do not advance it).
  */
-export function decodeName(
+function decodeName(
   buf: Buffer,
   offset: number,
 ): { name: string; next: number } {
@@ -162,24 +162,6 @@ function putU16(buf: Buffer, off: number, v: number): void {
   buf[off + 1] = v & 0xff;
 }
 
-function putU32(buf: Buffer, off: number, v: number): void {
-  buf[off] = (v >>> 24) & 0xff;
-  buf[off + 1] = (v >>> 16) & 0xff;
-  buf[off + 2] = (v >>> 8) & 0xff;
-  buf[off + 3] = v & 0xff;
-}
-
-export function ipToBuffer(ip: string): Buffer {
-  const parts = ip.split(".");
-  if (parts.length !== 4) throw new PacketError(`bad ipv4: ${ip}`);
-  const bytes = parts.map((p) => {
-    const n = Number(p);
-    if (!Number.isInteger(n) || n < 0 || n > 255) throw new PacketError(`bad ipv4: ${ip}`);
-    return n;
-  });
-  return Buffer.from(bytes);
-}
-
 export function encodeQuery(
   id: number,
   name: string,
@@ -193,54 +175,5 @@ export function encodeQuery(
   qname.copy(buf, 12);
   putU16(buf, 12 + qname.length, opts.type ?? DNS_TYPE_A);
   putU16(buf, 12 + qname.length + 2, DNS_CLASS_IN);
-  return buf;
-}
-
-export interface SynthAnswer {
-  /** IPv4 for A records; records without `ipv4` are emitted as empty-rdata. */
-  name: string;
-  type: number;
-  ttl: number;
-  ipv4?: string;
-}
-
-/**
- * Build a reply for a decoded query: QR=1, RA=1, RD/opcode echoed from the
- * question, one question section copied verbatim, then synthesized answers.
- * Answers are always uncompressed — valid DNS, trivially correct.
- */
-export function encodeResponse(
-  query: DnsMessage,
-  answers: SynthAnswer[],
-  rcode = 0,
-): Buffer {
-  const records = answers.map((a) => {
-    const name = encodeName(a.name);
-    const rdata = a.ipv4 !== undefined ? ipToBuffer(a.ipv4) : Buffer.alloc(0);
-    const rec = Buffer.alloc(name.length + 10 + rdata.length);
-    name.copy(rec, 0);
-    putU16(rec, name.length, a.type);
-    putU16(rec, name.length + 2, DNS_CLASS_IN);
-    putU32(rec, name.length + 4, a.ttl);
-    putU16(rec, name.length + 8, rdata.length);
-    rdata.copy(rec, name.length + 10);
-    return rec;
-  });
-  const total = 12 + (query.questions[0]?.raw.length ?? 0) + records.reduce((n, r) => n + r.length, 0);
-  const buf = Buffer.alloc(total);
-  putU16(buf, 0, query.id);
-  putU16(buf, 2, 0x8000 | 0x0080 | (rcode & 0x000f)); // QR=1 | RA=1 | RCODE
-  putU16(buf, 4, Math.min(query.questions.length, 1));
-  putU16(buf, 6, records.length);
-  let pos = 12;
-  const qraw = query.questions[0]?.raw;
-  if (qraw) {
-    qraw.copy(buf, pos);
-    pos += qraw.length;
-  }
-  for (const rec of records) {
-    rec.copy(buf, pos);
-    pos += rec.length;
-  }
   return buf;
 }
